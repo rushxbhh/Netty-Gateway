@@ -1,0 +1,124 @@
+name: g12-ingress
+
+services:
+  sequencer:
+    build:
+      context: .
+      dockerfile: sequencer/Dockerfile
+    image: g12-sequencer:dev
+    container_name: g12-sequencer
+    ipc: shareable
+    shm_size: 128m
+    command:
+      - --no-pin
+      - --idle-sleep-us
+      - "50"
+      - --inbound
+      - /dev/shm/g12-inbound.ring
+      - --journal
+      - /dev/shm/g12-journal.ring
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test "$(stat -c %s /dev/shm/g12-inbound.ring)" = "8388800"
+          && test "$(head -c 8 /dev/shm/g12-inbound.ring)" = "G12RING1"
+          && test "$(stat -c %s /dev/shm/g12-journal.ring)" = "67109056"
+          && test "$(head -c 8 /dev/shm/g12-journal.ring)" = "G12RING1"
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 3s
+    init: true
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: g12-postgres
+    environment:
+      POSTGRES_DB: g12audit
+      POSTGRES_USER: g12
+      POSTGRES_PASSWORD: g12_dev_password
+    volumes:
+      - g12-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U g12 -d g12audit"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  audit:
+    build:
+      context: .
+      dockerfile: audit-service/Dockerfile
+    image: g12-audit:dev
+    container_name: g12-audit
+    ipc: "service:sequencer"
+    depends_on:
+      sequencer:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      G12_JOURNAL_RING_PATH: /dev/shm/g12-journal.ring
+      G12_ACK_RING_PATH: /dev/shm/g12-ack.ring
+      G12_DB_URL: jdbc:postgresql://postgres:5432/g12audit
+      G12_DB_USER: g12
+      G12_DB_PASSWORD: g12_dev_password
+    healthcheck:
+      test:
+        - CMD
+        - java
+        - -cp
+        - /app/app.jar:/app/dependency/*
+        - org.g12.audit.AuditHealthCheck
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    init: true
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: g12-gateway:dev
+    container_name: g12-gateway
+    ipc: "service:sequencer"
+    depends_on:
+      sequencer:
+        condition: service_healthy
+      audit:
+        condition: service_healthy
+    environment:
+      G12_INBOUND_RING_PATH: /dev/shm/g12-inbound.ring
+      G12_ACK_RING_PATH: /dev/shm/g12-ack.ring
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70.0
+    command: ["org.java.GatewayServer", "8080"]
+    ports:
+      - "8080:8080"
+    init: true
+    restart: unless-stopped
+
+  # Run on demand with: docker compose run --rm integration-test
+  integration-test:
+    image: g12-gateway:dev
+    profiles: ["test"]
+    container_name: g12-integration-test
+    depends_on:
+      gateway:
+        condition: service_started
+      audit:
+        condition: service_healthy
+    ipc: "service:sequencer"
+    environment:
+      G12_GATEWAY_URI: ws://gateway:8080/ws
+      G12_JOURNAL_RING_PATH: /dev/shm/g12-journal.ring
+    command: ["org.java.GatewayTestClient"]
+    restart: "no"
+
+volumes:
+  g12-postgres-data:

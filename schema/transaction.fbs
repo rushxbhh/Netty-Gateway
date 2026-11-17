@@ -1,0 +1,22 @@
+namespace org.java.schema;
+
+enum TransactionType : ubyte {
+    TRANSFER = 0,
+    DEPOSIT = 1,
+    WITHDRAWAL = 2
+}
+
+struct TransactionData {
+    transactionId: ulong;
+    amount: long;
+    fromAccount: ulong;
+    toAccount: ulong;
+    type: TransactionType;
+}
+
+table TransactionMessage {
+    transaction: TransactionData;
+}
+
+root_type TransactionMessage;
+file_identifier "NIGT";

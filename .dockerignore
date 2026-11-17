@@ -1,0 +1,11 @@
+.git
+.idea
+.vscode
+.DS_Store
+**/target
+**/build
+**/*.class
+**/*.jar
+**/*.log
+.g12-*.ring
+*.ring

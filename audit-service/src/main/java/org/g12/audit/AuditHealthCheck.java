@@ -6,6 +6,7 @@ import org.g12.audit.repository.AuditRepository;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
@@ -16,7 +17,7 @@ public final class AuditHealthCheck {
     }
 
     public static void main(String[] args) throws Exception {
-        Path ackPath = Path.of(env("G12_ACK_RING_PATH", "/dev/shm/g12-ack.ring"));
+        Path ackPath = resolvePath("g12.ack.ring", "G12_ACK_RING_PATH", "g12-ack.ring");
         try (FileChannel channel = FileChannel.open(ackPath, StandardOpenOption.READ)) {
             if (channel.size() < AuditRingProtocol.ACK_FILE_SIZE) {
                 throw new IllegalStateException("ACK ring is missing or truncated");
@@ -38,6 +39,15 @@ public final class AuditHealthCheck {
                 env("G12_DB_USER", "g12"),
                 env("G12_DB_PASSWORD", "g12_dev_password")
         ).verifyConnection();
+    }
+
+    private static Path resolvePath(String property, String environment, String fallbackName) {
+        String configured = System.getProperty(property);
+        if (configured == null || configured.isBlank()) configured = System.getenv(environment);
+        if (configured != null && !configured.isBlank()) return Path.of(configured);
+        Path linuxShm = Path.of("/dev/shm");
+        if (Files.isDirectory(linuxShm) && Files.isWritable(linuxShm)) return linuxShm.resolve(fallbackName);
+        return Path.of("./" + fallbackName);
     }
 
     private static String env(String name, String fallback) {

@@ -40,3 +40,9 @@ build/
 
 ## references and temp files ##
 references/
+.env
+*.env.local
+.pids.json
+*.ring
+*.exe
+

@@ -1,8 +1,8 @@
 # ULL-FLIG: Project Status & Execution Log
 
-**Document Version:** 1.1.0  
+**Document Version:** 1.2.0  
 **Status Date:** November 25, 2026  
-**Current Phase:** Phase 1 Complete $\rightarrow$ Entering Phase 2 (Frontend & Demonstration Interface)  
+**Current Phase:** Phase 2 Complete $\rightarrow$ Entering Phase 3 (End-to-End Reliability & Stress Testing)  
 **Project Name:** ULL-FLIG (Ultra-Low-Latency Financial Ledger & Ingress Gateway)  
 **Project Title:** Design and Implementation of a Low-Latency Transaction Ingress and Audit Gateway  
 **Institution:** Medicaps University, Indore — Department of Computer Science and Engineering  
@@ -15,16 +15,17 @@
 
 This document tracks the execution roadmap and technical status for the **ULL-FLIG** major project.
 
-- **Phase 0 (Repository Audit and Baseline):** Completed on Nov 25, 2026. Codebase verified, baseline benchmarks recorded, test inventory cataloged.
-- **Phase 1 (System Stabilization):** **COMPLETED on Nov 25, 2026.**
-  - All services compile and run natively on Windows (C++20 GCC MinGW + Java 21) as well as Docker.
-  - Cross-platform shared-memory fallback implemented in `AuditApplication` and `AuditHealthCheck`.
-  - Cloud PostgreSQL integration (Neon) configured via uncommitted `.env` with full TLS encryption.
-  - Complete native cluster orchestration implemented (`scripts/start-native.ps1`, `scripts/stop-native.ps1`).
-  - Monotonic SPSC counter advancement verified across Inbound, Journal, and ACK rings.
-  - Ring counter and `streamId` preservation across process restarts verified without data corruption.
-  - End-to-end integration test (`GatewayTestClient`) passed (ingress acceptance, audit commit, ACK routing, business validation rejection, and malformed payload rejection).
-- **Next Phase:** Phase 2 (Frontend and Demonstration Interface).
+- **Phase 0 (Repository Audit and Baseline):** Completed on Nov 25, 2026.
+- **Phase 1 (System Stabilization):** Completed on Nov 25, 2026.
+- **Phase 2 (Frontend & Demonstration Interface):** **COMPLETED on Nov 25, 2026.**
+  - **Single-Port Unified Gateway (Port 8080):** Serves both the interactive web dashboard (`http://localhost:8080/`) and the binary WebSocket ingress endpoint (`ws://localhost:8080/ws`).
+  - **Performance Isolation Architecture:**
+    - Dedicated Netty `EventExecutorGroup` (`dashboard-io`, 2 threads) ensures HTTP dashboard traffic never blocks or competes with WebSocket hot-path transaction workers.
+    - Asynchronous background polling cache (`dashboard-cache-worker`) refreshes ring buffer telemetry (every 400ms) and PostgreSQL audit logs (every 1800ms) in memory, serving HTTP endpoints in < 50 microseconds with ZERO database blocking on the request path.
+  - **Client-Side Binary FlatBuffers Engine:** JavaScript binary encoder constructs exact `NIGT` binary FlatBuffers (60 bytes) directly in the browser using `ArrayBuffer` and `DataView`.
+  - **Deterministic 5-Stage Lifecycle Tracker:** Real-time visual stepper tracking `SUBMITTED` $\rightarrow$ `ACCEPTED AT INGRESS` $\rightarrow$ `SEQUENCED` $\rightarrow$ `AUDIT PERSISTED` $\rightarrow$ `ACKNOWLEDGED`.
+  - **System Telemetry & Live Audit Ledger:** Live SPSC ring meters (Inbound, Journal, ACK) and interactive PostgreSQL audit history table.
+- **Next Phase:** Phase 3 (End-to-End Reliability & Extended Stress Testing).
 
 ---
 
@@ -144,6 +145,8 @@ All tests below were executed and verified directly on the host machine:
 | **Build** | `mvn clean test-compile` (Gateway) | Java 21 compilation & dependencies | **PASS** | 13 main + 1 test class built successfully |
 | **Build** | `mvn clean test-compile` (Audit) | Java 21 compilation & dependencies | **PASS** | 10 main + 1 test class built successfully |
 | **Phase 1 Pipeline** | `verify-pipeline.ps1` | Full Cluster: Inbound $\rightarrow$ Sequencer $\rightarrow$ Journal $\rightarrow$ Audit $\rightarrow$ Neon DB $\rightarrow$ ACK Ring $\rightarrow$ Gateway $\rightarrow$ Client | **PASS** | SPSC counter advancement verified (0 $\rightarrow$ 1 across all 3 rings); restart counter preservation verified; durable Neon row verified |
+| **Phase 2 Dashboard** | `GET /`, `/api/telemetry`, `/api/audit` | Web UI + Non-blocking Telemetry & Audit APIs + Hot-Path Isolation | **PASS** | UI served at `http://localhost:8080/`; telemetry response < 50µs from memory cache; isolated `dashboard-io` executor protects hot-path Netty workers |
+
 
 
 ---

@@ -23,18 +23,19 @@ public final class AuditApplication {
         String dbUser = env("G12_DB_USER", "g12");
         String dbPassword = env("G12_DB_PASSWORD", "g12_dev_password");
 
-        AuditRepository repository = new AuditRepository(jdbcUrl, dbUser, dbPassword);
-        repository.initialize();
-        repository.verifyConnection();
-        LOGGER.info("PostgreSQL is ready; audit table is initialized.");
+        try (AuditRepository repository = new AuditRepository(jdbcUrl, dbUser, dbPassword)) {
+            repository.initialize();
+            repository.verifyConnection();
+            LOGGER.info("PostgreSQL is ready; audit table is initialized.");
 
-        try (MappedJournalReader journalReader = new MappedJournalReader(journalPath);
-             MappedAckRingWriter ackWriter = new MappedAckRingWriter(ackPath)) {
-            JournalConsumer consumer = new JournalConsumer(journalReader, ackWriter, repository);
-            Runtime.getRuntime().addShutdownHook(new Thread(consumer::stop, "g12-audit-shutdown"));
-            LOGGER.info("Journal ring: " + journalPath + "; ACK ring: " + ackPath
-                    + "; streamId=" + journalReader.streamId());
-            consumer.run();
+            try (MappedJournalReader journalReader = new MappedJournalReader(journalPath);
+                 MappedAckRingWriter ackWriter = new MappedAckRingWriter(ackPath)) {
+                JournalConsumer consumer = new JournalConsumer(journalReader, ackWriter, repository);
+                Runtime.getRuntime().addShutdownHook(new Thread(consumer::stop, "g12-audit-shutdown"));
+                LOGGER.info("Journal ring: " + journalPath + "; ACK ring: " + ackPath
+                        + "; streamId=" + journalReader.streamId());
+                consumer.run();
+            }
         } catch (Throwable failure) {
             LOGGER.log(Level.SEVERE, "Audit Service terminated", failure);
             throw failure;

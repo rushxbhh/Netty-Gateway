@@ -58,9 +58,14 @@ $inboundRing = if ($env:G12_INBOUND_RING_PATH) { $env:G12_INBOUND_RING_PATH } el
 $journalRing = if ($env:G12_JOURNAL_RING_PATH) { $env:G12_JOURNAL_RING_PATH } else { ".\g12-journal.ring" }
 $ackRing = if ($env:G12_ACK_RING_PATH) { $env:G12_ACK_RING_PATH } else { ".\g12-ack.ring" }
 
+$logDir = "$RootDir\logs"
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+
 Write-Host "`n[1/3] Launching C++ Sequencer Daemon..." -ForegroundColor Yellow
 $seqProcess = Start-Process -FilePath "$RootDir\sequencer\g12_sequencer.exe" `
     -ArgumentList "--no-pin", "--inbound", $inboundRing, "--journal", $journalRing `
+    -RedirectStandardOutput "$logDir\sequencer.log" `
+    -RedirectStandardError "$logDir\sequencer_err.log" `
     -PassThru -NoNewWindow
 Start-Sleep -Milliseconds 800
 
@@ -71,23 +76,14 @@ Write-Host "  -> C++ Sequencer PID: $($seqProcess.Id)" -ForegroundColor Green
 
 Write-Host "`n[2/3] Launching Java Audit Service..." -ForegroundColor Yellow
 $auditCp = "$RootDir\audit-service\target\g12-audit-service-1.0-SNAPSHOT.jar;$RootDir\audit-service\target\dependency\*"
-$auditEnv = @{
-    "G12_JOURNAL_RING_PATH" = $journalRing
-    "G12_ACK_RING_PATH" = $ackRing
-    "G12_DB_URL" = $env:G12_DB_URL
-    "G12_DB_USER" = $env:G12_DB_USER
-    "G12_DB_PASSWORD" = $env:G12_DB_PASSWORD
-}
+$env:G12_JOURNAL_RING_PATH = $journalRing
+$env:G12_ACK_RING_PATH = $ackRing
 
-# Start Audit process
-$auditPsi = New-Object System.Diagnostics.ProcessStartInfo
-$auditPsi.FileName = $JavaExe
-$auditPsi.Arguments = "-cp `"$auditCp`" org.g12.audit.AuditApplication"
-$auditPsi.UseShellExecute = $false
-foreach ($k in $auditEnv.Keys) {
-    if ($auditEnv[$k]) { $auditPsi.EnvironmentVariables[$k] = $auditEnv[$k] }
-}
-$auditProcess = [System.Diagnostics.Process]::Start($auditPsi)
+$auditProcess = Start-Process -FilePath $JavaExe `
+    -ArgumentList "-cp `"$auditCp`" org.g12.audit.AuditApplication" `
+    -RedirectStandardOutput "$logDir\audit.log" `
+    -RedirectStandardError "$logDir\audit_err.log" `
+    -PassThru -NoNewWindow
 
 Write-Host "  Waiting for Audit Service to connect to DB and create ACK ring..." -ForegroundColor Cyan
 $timeoutSec = 30
@@ -105,13 +101,15 @@ Write-Host "  -> Java Audit Service is ready (PID: $($auditProcess.Id))" -Foregr
 
 Write-Host "`n[3/3] Launching Netty WebSocket Gateway..." -ForegroundColor Yellow
 $gatewayCp = "$RootDir\target\Netty-Ingress-Gateway-1.0-SNAPSHOT.jar;$RootDir\target\dependency\*"
-$gatewayPsi = New-Object System.Diagnostics.ProcessStartInfo
-$gatewayPsi.FileName = $JavaExe
-$gatewayPsi.Arguments = "-cp `"$gatewayCp`" org.java.GatewayServer $GatewayPort"
-$gatewayPsi.UseShellExecute = $false
-$gatewayPsi.EnvironmentVariables["G12_INBOUND_RING_PATH"] = $inboundRing
-$gatewayPsi.EnvironmentVariables["G12_ACK_RING_PATH"] = $ackRing
-$gatewayProcess = [System.Diagnostics.Process]::Start($gatewayPsi)
+$env:G12_INBOUND_RING_PATH = $inboundRing
+$env:G12_ACK_RING_PATH = $ackRing
+$env:G12_JOURNAL_RING_PATH = $journalRing
+
+$gatewayProcess = Start-Process -FilePath $JavaExe `
+    -ArgumentList "-cp `"$gatewayCp`" org.java.GatewayServer $GatewayPort" `
+    -RedirectStandardOutput "$logDir\gateway.log" `
+    -RedirectStandardError "$logDir\gateway_err.log" `
+    -PassThru -NoNewWindow
 Start-Sleep -Seconds 2
 
 if ($gatewayProcess.HasExited) {

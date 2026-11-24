@@ -9,7 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 /** PostgreSQL persistence for immutable sequencer journal records. */
-public final class AuditRepository {
+public final class AuditRepository implements AutoCloseable {
     private static final String CREATE_TABLE = """
             CREATE TABLE IF NOT EXISTS transaction_audit (
                 stream_id BIGINT NOT NULL,
@@ -40,11 +40,24 @@ public final class AuditRepository {
     private final String jdbcUrl;
     private final String username;
     private final String password;
+    private Connection persistentConnection;
 
     public AuditRepository(String jdbcUrl, String username, String password) {
         this.jdbcUrl = jdbcUrl;
         this.username = username;
         this.password = password;
+    }
+
+    private synchronized Connection getOrCreateConnection() throws SQLException {
+        if (persistentConnection != null && !persistentConnection.isClosed()) {
+            return persistentConnection;
+        }
+        if (persistentConnection != null) {
+            try { persistentConnection.close(); } catch (Exception ignored) {}
+        }
+        persistentConnection = connect();
+        persistentConnection.setAutoCommit(false);
+        return persistentConnection;
     }
 
     public void initialize() throws SQLException {
@@ -57,37 +70,46 @@ public final class AuditRepository {
     /**
      * Inserts a record exactly once. If sequence_id already exists, all immutable
      * fields are compared so a conflicting replay is treated as corruption.
+     * Uses a persistent reused connection to avoid TLS/TCP handshake latency per transaction.
      */
-    public void persistIdempotently(long streamId, JournalRecord record) throws SQLException {
-        try (Connection connection = connect()) {
-            connection.setAutoCommit(false);
-            try {
-                int inserted;
-                try (PreparedStatement statement = connection.prepareStatement(INSERT)) {
-                    statement.setLong(1, streamId);
-                    statement.setLong(2, record.sequenceId());
-                    statement.setLong(3, record.clientTxnId());
-                    statement.setLong(4, record.connectionId());
-                    statement.setLong(5, record.fromAccount());
-                    statement.setLong(6, record.toAccount());
-                    statement.setLong(7, record.amount());
-                    statement.setShort(8, (short) record.type());
-                    statement.setShort(9, (short) record.status());
-                    statement.setLong(10, record.timestampTsc());
-                    statement.setLong(11, Integer.toUnsignedLong(record.checksum()));
-                    inserted = statement.executeUpdate();
-                }
-
-                if (inserted == 0) {
-                    verifyExisting(connection, streamId, record);
-                }
-                connection.commit();
-            } catch (SQLException | RuntimeException failure) {
-                try { connection.rollback(); } catch (SQLException rollbackFailure) {
-                    failure.addSuppressed(rollbackFailure);
-                }
-                throw failure;
+    public synchronized void persistIdempotently(long streamId, JournalRecord record) throws SQLException {
+        Connection connection = getOrCreateConnection();
+        try {
+            int inserted;
+            try (PreparedStatement statement = connection.prepareStatement(INSERT)) {
+                statement.setLong(1, streamId);
+                statement.setLong(2, record.sequenceId());
+                statement.setLong(3, record.clientTxnId());
+                statement.setLong(4, record.connectionId());
+                statement.setLong(5, record.fromAccount());
+                statement.setLong(6, record.toAccount());
+                statement.setLong(7, record.amount());
+                statement.setShort(8, (short) record.type());
+                statement.setShort(9, (short) record.status());
+                statement.setLong(10, record.timestampTsc());
+                statement.setLong(11, Integer.toUnsignedLong(record.checksum()));
+                inserted = statement.executeUpdate();
             }
+
+            if (inserted == 0) {
+                verifyExisting(connection, streamId, record);
+            }
+            connection.commit();
+        } catch (SQLException | RuntimeException failure) {
+            try { connection.rollback(); } catch (SQLException rollbackFailure) {
+                failure.addSuppressed(rollbackFailure);
+            }
+            try { connection.close(); } catch (Exception ignored) {}
+            persistentConnection = null;
+            throw failure;
+        }
+    }
+
+    @Override
+    public synchronized void close() {
+        if (persistentConnection != null) {
+            try { persistentConnection.close(); } catch (Exception ignored) {}
+            persistentConnection = null;
         }
     }
 

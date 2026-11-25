@@ -37,3 +37,13 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+## references and temp files ##
+references/
+.env
+*.env.local
+.pids.json
+*.ring
+*.exe
+logs/
+

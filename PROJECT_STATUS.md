@@ -146,6 +146,7 @@ All tests below were executed and verified directly on the host machine:
 | **Build** | `mvn clean test-compile` (Audit) | Java 21 compilation & dependencies | **PASS** | 10 main + 1 test class built successfully |
 | **Phase 1 Pipeline** | `verify-pipeline.ps1` | Full Cluster: Inbound $\rightarrow$ Sequencer $\rightarrow$ Journal $\rightarrow$ Audit $\rightarrow$ Neon DB $\rightarrow$ ACK Ring $\rightarrow$ Gateway $\rightarrow$ Client | **PASS** | SPSC counter advancement verified (0 $\rightarrow$ 1 across all 3 rings); restart counter preservation verified; durable Neon row verified |
 | **Phase 2 Dashboard** | `GET /`, `/api/telemetry`, `/api/audit` | Web UI + Non-blocking Telemetry & Audit APIs + Hot-Path Isolation | **PASS** | UI served at `http://localhost:8080/`; telemetry response < 50µs from memory cache; isolated `dashboard-io` executor protects hot-path Netty workers |
+| **Phase 4 Latency** | `PipelineLatencyBenchmark` | End-to-End WebSocket Ingress + Ring + C++ + Neon Cloud DB + ACK | **PASS** | 100% success (150/150 tx).<br>**Ingress p50:** 1.41 ms (p99: 4.63 ms)<br>**DB Commit p50:** 305.92 ms (p99: 2,197 ms)<br>**Total E2E p50:** 308.58 ms (p99: 2,198 ms) |
 
 
 

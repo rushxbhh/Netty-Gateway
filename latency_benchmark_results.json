@@ -1,0 +1,26 @@
+[
+  {
+    "suite": "Sequential-50",
+    "count": 50,
+    "success": 50,
+    "throughput": 2.31,
+    "ingress_p50": 1.830,
+    "ingress_p99": 5.123,
+    "db_p50": 321.68,
+    "db_p99": 1804.38,
+    "e2e_p50": 323.51,
+    "e2e_p99": 1805.97
+  },
+  {
+    "suite": "Sequential-100",
+    "count": 100,
+    "success": 100,
+    "throughput": 1.80,
+    "ingress_p50": 1.413,
+    "ingress_p99": 4.629,
+    "db_p50": 305.92,
+    "db_p99": 2197.21,
+    "e2e_p50": 308.58,
+    "e2e_p99": 2198.30
+  }
+]

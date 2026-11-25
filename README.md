@@ -2,7 +2,7 @@
 
 A three-service Java/C++ application using Linux shared-memory SPSC rings.
 
-## Services
+##  Services
 
 - **Gateway** — Java 21 + Netty WebSocket ingress; validates FlatBuffers and publishes to the inbound ring.
 - **Sequencer** — C++20; consumes inbound records, assigns a sequence, and publishes 64-byte journal records.

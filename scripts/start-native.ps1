@@ -36,18 +36,20 @@ if (-not (Test-Path $JavaExe)) {
 # Optional build
 if ($BuildFirst -or (-not (Test-Path "$RootDir\sequencer\g12_sequencer.exe"))) {
     Write-Host "[Build] Compiling C++ Sequencer..." -ForegroundColor Yellow
-    & cmd /c "$GppExe -std=c++20 -O3 -msse4.2 -Wall -Wextra -Wpedantic -I $RootDir\sequencer\include $RootDir\sequencer\src\main.cpp -o $RootDir\sequencer\g12_sequencer.exe"
+    & $GppExe -std=c++20 -O3 "-msse4.2" -Wall -Wextra -Wpedantic -I "$RootDir\sequencer\include" "$RootDir\sequencer\src\main.cpp" -o "$RootDir\sequencer\g12_sequencer.exe"
     if ($LASTEXITCODE -ne 0) { throw "Failed to build g12_sequencer.exe" }
 }
 
-if ($BuildFirst -or (-not (Test-Path "$RootDir\target\classes\org\java\GatewayServer.class"))) {
-    Write-Host "[Build] Compiling Gateway..." -ForegroundColor Yellow
-    & $MvnCmd compile
+if ($BuildFirst -or (-not (Test-Path "$RootDir\target\Netty-Ingress-Gateway-1.0-SNAPSHOT.jar")) -or (-not (Test-Path "$RootDir\target\dependency"))) {
+    Write-Host "[Build] Packaging Gateway..." -ForegroundColor Yellow
+    & $MvnCmd package dependency:copy-dependencies -DoutputDirectory=target/dependency -DskipTests
+    if ($LASTEXITCODE -ne 0) { throw "Failed to package Gateway" }
 }
 
-if ($BuildFirst -or (-not (Test-Path "$RootDir\audit-service\target\classes\org\g12\audit\AuditApplication.class"))) {
-    Write-Host "[Build] Compiling Audit Service..." -ForegroundColor Yellow
-    & $MvnCmd -f "$RootDir\audit-service\pom.xml" compile
+if ($BuildFirst -or (-not (Test-Path "$RootDir\audit-service\target\g12-audit-service-1.0-SNAPSHOT.jar")) -or (-not (Test-Path "$RootDir\audit-service\target\dependency"))) {
+    Write-Host "[Build] Packaging Audit Service..." -ForegroundColor Yellow
+    & $MvnCmd -f "$RootDir\audit-service\pom.xml" package dependency:copy-dependencies -DoutputDirectory=target/dependency -DskipTests
+    if ($LASTEXITCODE -ne 0) { throw "Failed to package Audit Service" }
 }
 
 # Stop any previously running instances
@@ -127,5 +129,6 @@ Set-Content -Path "$RootDir\.pids.json" -Value (@{
 Write-Host "`n==========================================================" -ForegroundColor Green
 Write-Host "  ULL-FLIG Pipeline is running natively!                 " -ForegroundColor Green
 Write-Host "  WebSocket Gateway: ws://localhost:$GatewayPort/ws       " -ForegroundColor Green
+Write-Host "  Frontend Hosted: http://localhost:$GatewayPort       " -ForegroundColor Green
 Write-Host "  To stop all services: .\scripts\stop-native.ps1         " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green

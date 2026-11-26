@@ -192,17 +192,25 @@ async function fetchTelemetry() {
     if (!r.ok) return;
     const d = await r.json();
 
-    const dbDot = document.getElementById('dbDot');
-    const dbVal = document.getElementById('dbVal');
-    if (d.dbConnected) {
-      dbDot.className = 'dot green';
-      dbVal.className = 'status-val green';
-      dbVal.textContent = 'CONNECTED';
-    } else {
-      dbDot.className = 'dot red';
-      dbVal.className = 'status-val red';
-      dbVal.textContent = 'OFFLINE';
-    }
+    const setSvc = (dotId, valId, ok, okText, failText) => {
+      document.getElementById(dotId).className = ok ? 'dot green' : 'dot red';
+      const el = document.getElementById(valId);
+      el.className = ok ? 'status-val green' : 'status-val red';
+      el.textContent = ok ? okText : failText;
+    };
+
+    const svc = d.services || {};
+    const seqOk = svc.sequencer === 'ONLINE';
+    const audOk = svc.audit === 'ONLINE';
+    const dbOk  = !!d.dbConnected;
+
+    setSvc('seqDot', 'seqVal', seqOk, 'ONLINE', 'OFFLINE');
+    setSvc('audDot', 'audVal', audOk, 'ONLINE', 'OFFLINE');
+    setSvc('dbDot',  'dbVal',  dbOk,  'CONNECTED', 'OFFLINE');
+
+    document.getElementById('inboundDot').className = seqOk ? 'dot green' : 'dot amber';
+    document.getElementById('journalDot').className = (seqOk && audOk) ? 'dot green' : 'dot amber';
+    document.getElementById('ackDot').className     = audOk ? 'dot green' : 'dot amber';
 
     const fmt = n => Number(n).toLocaleString();
     const pct = (depth, cap) => Math.min(100, Math.max(0, (depth / cap) * 100)).toFixed(1) + '%';

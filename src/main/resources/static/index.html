@@ -29,14 +29,24 @@
 
   <div class="topbar-right">
     <div class="status-item">
-      <span class="dot amber" id="wsDot"></span>
-      <span class="status-label">WebSocket</span>
-      <span class="status-val amber" id="wsVal">CONNECTING</span>
+      <span class="dot" id="seqDot"></span>
+      <span class="status-label">Sequencer</span>
+      <span class="status-val" id="seqVal" style="color:var(--text-3)">CHECKING</span>
+    </div>
+    <div class="status-item">
+      <span class="dot" id="audDot"></span>
+      <span class="status-label">Audit</span>
+      <span class="status-val" id="audVal" style="color:var(--text-3)">CHECKING</span>
     </div>
     <div class="status-item">
       <span class="dot" id="dbDot"></span>
       <span class="status-label">PostgreSQL</span>
       <span class="status-val" id="dbVal" style="color:var(--text-3)">CHECKING</span>
+    </div>
+    <div class="status-item">
+      <span class="dot amber" id="wsDot"></span>
+      <span class="status-label">WebSocket</span>
+      <span class="status-val amber" id="wsVal">CONNECTING</span>
     </div>
     <div class="clock-box">
       <span class="clock-time" id="clock">--:--:--</span>
@@ -54,7 +64,7 @@
   <div class="grid-3 mb-14">
     <div class="panel ring-panel">
       <div class="ring-head">
-        <div class="ring-title"><span class="dot green"></span> Inbound Ring</div>
+        <div class="ring-title"><span class="dot" id="inboundDot"></span> Inbound Ring</div>
         <div class="ring-route">Gateway → Sequencer</div>
       </div>
       <div class="ring-metrics">
@@ -68,7 +78,7 @@
 
     <div class="panel ring-panel">
       <div class="ring-head">
-        <div class="ring-title"><span class="dot green"></span> Journal Ring</div>
+        <div class="ring-title"><span class="dot" id="journalDot"></span> Journal Ring</div>
         <div class="ring-route">Sequencer → Audit</div>
       </div>
       <div class="ring-metrics">
@@ -82,7 +92,7 @@
 
     <div class="panel ring-panel">
       <div class="ring-head">
-        <div class="ring-title"><span class="dot green"></span> ACK Ring</div>
+        <div class="ring-title"><span class="dot" id="ackDot"></span> ACK Ring</div>
         <div class="ring-route">Audit → Gateway</div>
       </div>
       <div class="ring-metrics">

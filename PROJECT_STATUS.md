@@ -1,8 +1,8 @@
 # ULL-FLIG: Project Status & Execution Log
 
-**Document Version:** 1.5.0  
+**Document Version:** 1.6.0  
 **Status Date:** November 26, 2026  
-**Current Phase:** Phase 4 Complete (Batch DB Commit + Singapore DB) $\rightarrow$ Entering Phase 5 (Observability & Demo Runbook)  
+**Current Phase:** Phase 5 Complete (Observability & Demo Runbook) $\rightarrow$ Ready for Phase 6 / External Examination  
 **Project Name:** ULL-FLIG (Ultra-Low-Latency Financial Ledger & Ingress Gateway)  
 **Project Title:** Design and Implementation of a Low-Latency Transaction Ingress and Audit Gateway  
 **Institution:** Medicaps University, Indore — Department of Computer Science and Engineering  
@@ -26,7 +26,11 @@ This document tracks the execution roadmap and technical status for the **ULL-FL
   - **Pipeline Latency Benchmark (batch mode + Singapore DB):** Gateway ingress p50 = **0.71–1.21 ms** (sub-millisecond at concurrency). Neon Singapore DB batch commit p50 = **185–199 ms** across all concurrency levels (down from 1,752 ms at Concurrency=10 — an **8.8x reduction**). Throughput scaled from **5.00 tx/sec** (Concurrency=1) to **50.66 tx/sec** (Concurrency=10) with **100% success rate across all 300 transactions**.
   - **Charts generated:** `benchmark-charts/` (4 PNG charts: latency percentiles, throughput, ingress-vs-DB breakdown, concurrency scaling).
   - **Raw output:** `latency_benchmark_results.json` updated with fresh run metrics.
-- **Next Phase:** Phase 5 (Observability & External Examiner Demonstration Runbook).
+- **Phase 5 (Observability & External Examiner Demonstration Runbook):** **COMPLETED on Nov 26, 2026.**
+  - Added `/health` (`200 UP` / `503 DEGRADED`) and live per-service liveness tracking (`gateway`, `sequencer`, `audit`, `database`) in `DashboardHttpHandler` and topbar status indicators.
+  - Added non-blocking `FINE` correlation logging (`connId`, `txnId`, `inboundSeq`, `journalSeq`, `streamId`) across `WebSocketFrameHandler` and `JournalConsumer`.
+  - Created step-by-step examiner walkthrough in `references/demo_runbook.md` and full test matrix in `references/test_results.md`.
+- **Next Phase:** Phase 6 (Final Examination Preparation).
 
 ---
 

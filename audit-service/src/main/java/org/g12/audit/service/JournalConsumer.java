@@ -143,6 +143,12 @@ public final class JournalConsumer implements Runnable {
                     );
                     ackWriter.publish(acknowledgement, running::get);
                     journalReader.advanceConsumer(record.sequenceId());
+                    if (LOGGER.isLoggable(Level.FINE)) {
+                        LOGGER.fine("AUDIT_ACK streamId=" + journalReader.streamId()
+                                + " journalSeq=" + record.sequenceId()
+                                + " txnId=" + record.clientTxnId()
+                                + " connId=" + record.connectionId());
+                    }
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     running.set(false);

@@ -64,6 +64,8 @@ public final class WebSocketFrameHandler extends SimpleChannelInboundHandler<Web
         ByteBuffer payloadView = content.nioBuffer(readerIndex, readableBytes);
         GatewayResponse validation = validator.validate(payloadView);
         if (!validation.isAccepted()) {
+            LOGGER.fine(() -> "INGRESS_REJECT connId=" + ctx.channel().attr(CONNECTION_ID).get()
+                    + " reason=" + validation.toWireText());
             ctx.writeAndFlush(new TextWebSocketFrame(validation.toWireText()));
             return;
         }
@@ -105,7 +107,12 @@ public final class WebSocketFrameHandler extends SimpleChannelInboundHandler<Web
                     }
 
                     switch (result.status()) {
-                        case PUBLISHED -> pending.markIngressPublished(result.inboundSequence());
+                        case PUBLISHED -> {
+                            LOGGER.fine(() -> "INGRESS_ACCEPT connId=" + connectionId
+                                    + " txnId=" + validation.getTransactionId()
+                                    + " inboundSeq=" + result.inboundSequence());
+                            pending.markIngressPublished(result.inboundSequence());
+                        }
                         case QUEUE_FULL -> pending.rejectIngress("INGRESS_OVERLOADED",
                                 "Gateway is busy; retry the transaction");
                         case RING_FULL -> pending.rejectIngress("SEQUENCER_BACKPRESSURE",

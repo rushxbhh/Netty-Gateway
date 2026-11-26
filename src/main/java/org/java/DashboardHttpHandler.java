@@ -62,6 +62,8 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
     private final byte[] cachedCssBytes;
     private final byte[] cachedJsBytes;
     private volatile String cachedTelemetryJson = "{\"status\":\"STARTING\",\"dbConnected\":false}";
+    private volatile String cachedHealthJson = "{\"status\":\"STARTING\"}";
+    private volatile boolean clusterHealthy = false;
     private volatile String cachedAuditJson = "{\"records\":[]}";
     private volatile String cachedBenchmarkJson = "{\"suites\":[]}";
     private final AtomicBoolean dbConnected = new AtomicBoolean(false);
@@ -145,6 +147,12 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
             return;
         }
 
+        if (uri.equals("/health") || uri.equals("/api/health")) {
+            HttpResponseStatus status = clusterHealthy ? HttpResponseStatus.OK : HttpResponseStatus.SERVICE_UNAVAILABLE;
+            sendResponse(ctx, req, status, cachedHealthJson.getBytes(CharsetUtil.UTF_8), "application/json");
+            return;
+        }
+
         sendResponse(ctx, req, HttpResponseStatus.NOT_FOUND, "Not Found".getBytes(CharsetUtil.UTF_8), "text/plain");
     }
 
@@ -154,11 +162,26 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
             RingTelemetry journal = readRing(journalRingPath, RingProtocol.JOURNAL_CAPACITY, true);
             RingTelemetry ack = readRing(ackRingPath, AckRingProtocol.CAPACITY, false);
 
-            StringBuilder json = new StringBuilder(256);
+            boolean dbUp = dbConnected.get();
+            boolean seqUp = isServiceAlive("sequencer", Files.exists(journalRingPath));
+            boolean audUp = isServiceAlive("audit", dbUp);
+            boolean allHealthy = dbUp && seqUp && audUp;
+            this.clusterHealthy = allHealthy;
+
+            String servicesJson = "{\"gateway\":\"ONLINE\""
+                    + ",\"sequencer\":\"" + (seqUp ? "ONLINE" : "OFFLINE") + "\""
+                    + ",\"audit\":\"" + (audUp ? "ONLINE" : "OFFLINE") + "\""
+                    + ",\"database\":\"" + (dbUp ? "CONNECTED" : "OFFLINE") + "\"}";
+
+            this.cachedHealthJson = "{\"status\":\"" + (allHealthy ? "UP" : "DEGRADED")
+                    + "\",\"services\":" + servicesJson + "}";
+
+            StringBuilder json = new StringBuilder(384);
             json.append("{");
-            json.append("\"status\":\"ONLINE\",");
-            json.append("\"dbConnected\":").append(dbConnected.get()).append(",");
+            json.append("\"status\":\"").append(allHealthy ? "ONLINE" : "DEGRADED").append("\",");
+            json.append("\"dbConnected\":").append(dbUp).append(",");
             json.append("\"pendingRequests\":").append(pendingRequests.isAtCapacity() ? -1 : 0).append(",");
+            json.append("\"services\":").append(servicesJson).append(",");
 
             // Inbound ring
             json.append("\"inbound\":{")
@@ -188,6 +211,22 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
             json.append("}");
             this.cachedTelemetryJson = json.toString();
         } catch (Throwable ignored) {}
+    }
+
+    private static boolean isServiceAlive(String key, boolean fallback) {
+        try {
+            Path pidsPath = Path.of(".pids.json");
+            if (!Files.exists(pidsPath)) return fallback;
+            String content = Files.readString(pidsPath, CharsetUtil.UTF_8);
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("\"" + key + "\"\\s*:\\s*(\\d+)")
+                    .matcher(content);
+            if (m.find()) {
+                long pid = Long.parseLong(m.group(1));
+                return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
+            }
+        } catch (Exception ignored) {}
+        return fallback;
     }
 
     private void refreshAuditCache() {
@@ -253,7 +292,7 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
 
         } catch (Throwable failure) {
             dbConnected.set(false);
-            this.cachedAuditJson = "{\"error\":\"" + escapeJson(failure.getMessage()) + "\",\"records\":[]}";
+            this.cachedAuditJson = "{\"error\":\"Audit database temporarily unavailable\",\"records\":[]}";
         }
     }
 

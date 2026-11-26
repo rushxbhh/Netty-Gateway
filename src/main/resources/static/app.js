@@ -285,7 +285,7 @@ function clearConsole() { document.getElementById('console').innerHTML = ''; }
 
 /* ── Benchmark Data & Chart.js ─────────────────────────────────────────── */
 const DEFAULT_BENCH = {
-  environment: { os: 'Windows 11 (amd64)', jvm: 'Oracle JDK 21.0.4', processors: 12, database: 'Neon PostgreSQL 16 (Singapore)' },
+  environment: { os: 'Windows 11 (x86-64)', jvm: 'Oracle JDK 21.0.4', processors: 12, database: 'Neon PostgreSQL 16 (Singapore)' },
   suites: [
     { suite: 'Sequential-50',  concurrency: 1,  count: 50,  success: 50,  duration_sec: 10.00, throughput: 5.00,
       ingress:  { min: 0.801, p50: 1.207, p90: 1.573, p95: 1.673, p99: 2.320, max: 2.783, mean: 1.275, stddev: 0.303 },

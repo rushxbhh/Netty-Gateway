@@ -1,8 +1,8 @@
 # ULL-FLIG: Project Status & Execution Log
 
-**Document Version:** 1.3.0  
+**Document Version:** 1.4.0  
 **Status Date:** November 26, 2026  
-**Current Phase:** Phase 3 & Phase 4 Complete $\rightarrow$ Entering Phase 5 (Observability & Demo Runbook)  
+**Current Phase:** Phase 4 Complete (Fresh Benchmark Run) $\rightarrow$ Entering Phase 5 (Observability & Demo Runbook)  
 **Project Name:** ULL-FLIG (Ultra-Low-Latency Financial Ledger & Ingress Gateway)  
 **Project Title:** Design and Implementation of a Low-Latency Transaction Ingress and Audit Gateway  
 **Institution:** Medicaps University, Indore — Department of Computer Science and Engineering  
@@ -21,9 +21,11 @@ This document tracks the execution roadmap and technical status for the **ULL-FL
 - **Phase 3 (End-to-End Reliability & Boundary Testing):** **COMPLETED on Nov 26, 2026.**
   - **Comprehensive 12-Scenario Automated Suite (`EndToEndReliabilityTestSuite`):** Tested valid transfers, deposits, withdrawals, negative amounts, zero amounts, self-transfers, system transfers, malformed buffers, duplicate in-flight transactions, sequential monotonicity, concurrent multi-client submissions, and abrupt client disconnect handling.
   - **Mid-Stream Restart Recovery:** Tested mid-flight cluster teardown and restart; ring magic `G12RING1`, `streamId`, and sequence counters persisted without reset or duplication.
-- **Phase 4 (Performance Benchmarking):** **COMPLETED on Nov 25, 2026.**
-  - **C++ Sequencer Engine Benchmark:** 18.65M ops/sec throughput, p50 latency of 48 CPU cycles (~14.5 ns).
-  - **Pipeline Latency Benchmark:** Sub-millisecond gateway ingress (0.889 ms p50), stabilized transatlantic Neon DB commit (262.40 ms p50 with 19 ms stddev), 100% transaction success rate across 150 consecutive transactions.
+- **Phase 4 (Performance Benchmarking):** **COMPLETED (re-run Nov 26, 2026 — 300/300 success).**
+  - **C++ Sequencer Engine Benchmark:** 24.83 M ops/sec throughput, p50 latency of 47 CPU cycles (~14 ns), p99 = 54 cycles (~16 ns). SSE4.2 hardware CRC32C.
+  - **Pipeline Latency Benchmark (fresh run):** Gateway ingress p50 = 1.08–2.40 ms (sub-5 ms all suites). Neon Cloud DB commit p50 = 199–1752 ms (scales with concurrency due to cloud connection pooling). **100% success rate across all 300 transactions** (4 suites: Sequential-50, Sequential-100, Concurrent-5, Concurrent-10).
+  - **Charts generated:** `benchmark-charts/` (4 PNG charts: latency percentiles, throughput, ingress-vs-DB breakdown, concurrency scaling).
+  - **Raw output:** `latency_benchmark_results.json` updated with fresh run metrics.
 - **Next Phase:** Phase 5 (Observability & External Examiner Demonstration Runbook).
 
 ---
@@ -146,7 +148,7 @@ All tests below were executed and verified directly on the host machine:
 | **Phase 1 Pipeline** | `verify-pipeline.ps1` | Full Cluster: Inbound $\rightarrow$ Sequencer $\rightarrow$ Journal $\rightarrow$ Audit $\rightarrow$ Neon DB $\rightarrow$ ACK Ring $\rightarrow$ Gateway $\rightarrow$ Client | **PASS** | SPSC counter advancement verified (0 $\rightarrow$ 1 across all 3 rings); restart counter preservation verified; durable Neon row verified |
 | **Phase 2 Dashboard** | `GET /`, `/api/telemetry`, `/api/audit` | Web UI + Non-blocking Telemetry & Audit APIs + Hot-Path Isolation | **PASS** | UI served at `http://localhost:8080/`; telemetry response < 50µs from memory cache; isolated `dashboard-io` executor protects hot-path Netty workers |
 | **Phase 3 Reliability** | `EndToEndReliabilityTestSuite` / `test-reliability.ps1` | Comprehensive 12-scenario reliability suite + Mid-stream restart | **PASS** | 100% pass across all 12 boundary, validation, concurrency, duplicate rejection, and restart continuity scenarios |
-| **Phase 4 Latency** | `PipelineLatencyBenchmark` | End-to-End WebSocket Ingress + Ring + C++ + Neon Cloud DB + ACK | **PASS** | 100% success (150/150 tx).<br>**Ingress p50:** 1.41 ms (p99: 4.63 ms)<br>**DB Commit p50:** 305.92 ms (p99: 2,197 ms)<br>**Total E2E p50:** 308.58 ms (p99: 2,198 ms) |
+| **Phase 4 Latency** | `PipelineLatencyBenchmark` | End-to-End WebSocket Ingress + Ring + C++ + Neon Cloud DB + ACK | **PASS** | **300/300 tx success (100%)** across 4 suites (Sequential-50, Sequential-100, Concurrent-5, Concurrent-10).<br>**Ingress p50:** 1.08–2.40 ms (sub-5 ms all suites)<br>**DB Commit p50:** 199–1752 ms (scales with concurrency; cloud Neon WAN bottleneck)<br>**Total E2E p50:** 201–1753 ms<br>**C++ sequencer:** 24.83 M ops/s, p50 = 47 cycles (~14 ns) |
 
 
 

@@ -7,6 +7,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 
 /** PostgreSQL persistence for immutable sequencer journal records. */
 public final class AuditRepository implements AutoCloseable {
@@ -68,39 +69,60 @@ public final class AuditRepository implements AutoCloseable {
     }
 
     /**
-     * Inserts a record exactly once. If sequence_id already exists, all immutable
-     * fields are compared so a conflicting replay is treated as corruption.
-     * Uses a persistent reused connection to avoid TLS/TCP handshake latency per transaction.
+     * Single-record idempotent insert. Kept for unit tests and sequential-load paths.
+     * Under concurrent load, prefer {@link #persistBatch(long, List)}.
      */
     public synchronized void persistIdempotently(long streamId, JournalRecord record) throws SQLException {
         Connection connection = getOrCreateConnection();
         try {
             int inserted;
             try (PreparedStatement statement = connection.prepareStatement(INSERT)) {
-                statement.setLong(1, streamId);
-                statement.setLong(2, record.sequenceId());
-                statement.setLong(3, record.clientTxnId());
-                statement.setLong(4, record.connectionId());
-                statement.setLong(5, record.fromAccount());
-                statement.setLong(6, record.toAccount());
-                statement.setLong(7, record.amount());
-                statement.setShort(8, (short) record.type());
-                statement.setShort(9, (short) record.status());
-                statement.setLong(10, record.timestampTsc());
-                statement.setLong(11, Integer.toUnsignedLong(record.checksum()));
+                bindRecord(statement, streamId, record);
                 inserted = statement.executeUpdate();
             }
-
             if (inserted == 0) {
                 verifyExisting(connection, streamId, record);
             }
             connection.commit();
         } catch (SQLException | RuntimeException failure) {
-            try { connection.rollback(); } catch (SQLException rollbackFailure) {
-                failure.addSuppressed(rollbackFailure);
+            rollbackAndInvalidate(connection, failure);
+            throw failure;
+        }
+    }
+
+    /**
+     * Batch idempotent insert: sends all records in a single JDBC batch, then commits once.
+     * <p>
+     * This amortises the cloud database network round-trip across N records,
+     * reducing per-record commit latency from O(N × RTT) to O(1 × RTT).
+     * Sequence ordering is preserved by the caller (JournalConsumer drains in journal order).
+     * Any conflict on an individual row triggers a per-row verification; the whole batch
+     * still commits if all conflicts are benign replays.
+     * On any failure the connection is rolled back and invalidated so the next call
+     * reconnects cleanly.
+     *
+     * @param streamId the volatile ring stream identifier
+     * @param records  ordered list of records to persist; must not be empty
+     * @throws SQLException if persistence or verification fails
+     */
+    public synchronized void persistBatch(long streamId, List<JournalRecord> records) throws SQLException {
+        if (records.isEmpty()) return;
+        Connection connection = getOrCreateConnection();
+        try (PreparedStatement statement = connection.prepareStatement(INSERT)) {
+            for (JournalRecord record : records) {
+                bindRecord(statement, streamId, record);
+                statement.addBatch();
             }
-            try { connection.close(); } catch (Exception ignored) {}
-            persistentConnection = null;
+            int[] results = statement.executeBatch();
+            // Verify any rows that conflicted (DO NOTHING → count 0).
+            for (int i = 0; i < results.length; i++) {
+                if (results[i] == 0) {
+                    verifyExisting(connection, streamId, records.get(i));
+                }
+            }
+            connection.commit();
+        } catch (SQLException | RuntimeException failure) {
+            rollbackAndInvalidate(connection, failure);
             throw failure;
         }
     }
@@ -113,7 +135,33 @@ public final class AuditRepository implements AutoCloseable {
         }
     }
 
-    private static void verifyExisting(Connection connection, long streamId, JournalRecord record) throws SQLException {
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static void bindRecord(PreparedStatement statement, long streamId, JournalRecord record)
+            throws SQLException {
+        statement.setLong(1, streamId);
+        statement.setLong(2, record.sequenceId());
+        statement.setLong(3, record.clientTxnId());
+        statement.setLong(4, record.connectionId());
+        statement.setLong(5, record.fromAccount());
+        statement.setLong(6, record.toAccount());
+        statement.setLong(7, record.amount());
+        statement.setShort(8, (short) record.type());
+        statement.setShort(9, (short) record.status());
+        statement.setLong(10, record.timestampTsc());
+        statement.setLong(11, Integer.toUnsignedLong(record.checksum()));
+    }
+
+    private void rollbackAndInvalidate(Connection connection, Exception cause) {
+        try { connection.rollback(); } catch (SQLException rollbackFailure) {
+            cause.addSuppressed(rollbackFailure);
+        }
+        try { connection.close(); } catch (Exception ignored) {}
+        persistentConnection = null;
+    }
+
+    private static void verifyExisting(Connection connection, long streamId, JournalRecord record)
+            throws SQLException {
         String sql = """
                 SELECT client_txn_id, connection_id, from_account, to_account,
                        amount, transaction_type, journal_status, timestamp_tsc, checksum

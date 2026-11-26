@@ -1,26 +1,55 @@
-[
-  {
-    "suite": "Sequential-50",
-    "count": 50,
-    "success": 50,
-    "throughput": 2.31,
-    "ingress_p50": 1.830,
-    "ingress_p99": 5.123,
-    "db_p50": 321.68,
-    "db_p99": 1804.38,
-    "e2e_p50": 323.51,
-    "e2e_p99": 1805.97
+{
+  "environment": {
+    "os": "Windows 11 (amd64)",
+    "jvm": "21.0.4 (Oracle Corporation)",
+    "processors": 12,
+    "database": "PostgreSQL 16 (Neon Serverless AWS us-east-2 Ohio)",
+    "sequencer_engine": "C++20 GCC 15.2.0 -O3 -msse4.2 (18.65M ops/s, 48 cycles p50)"
   },
-  {
-    "suite": "Sequential-100",
-    "count": 100,
-    "success": 100,
-    "throughput": 1.80,
-    "ingress_p50": 1.413,
-    "ingress_p99": 4.629,
-    "db_p50": 305.92,
-    "db_p99": 2197.21,
-    "e2e_p50": 308.58,
-    "e2e_p99": 2198.30
-  }
-]
+  "suites": [
+    {
+      "suite": "Sequential-50",
+      "concurrency": 1,
+      "count": 50,
+      "success": 50,
+      "duration_sec": 10.00,
+      "throughput": 5.00,
+      "ingress": { "min": 0.801, "p50": 1.207, "p90": 1.573, "p95": 1.673, "p99": 2.320, "max": 2.783, "mean": 1.275, "stddev": 0.303 },
+      "db_audit": { "min": 170.71, "p50": 197.01, "p90": 202.46, "p95": 215.99, "p99": 341.19, "max": 460.36, "mean": 198.36, "stddev": 38.78 },
+      "e2e": { "min": 172.11, "p50": 198.47, "p90": 203.50, "p95": 216.92, "p99": 342.55, "max": 461.75, "mean": 199.63, "stddev": 38.80 }
+    },
+    {
+      "suite": "Sequential-100",
+      "concurrency": 1,
+      "count": 100,
+      "success": 100,
+      "duration_sec": 19.28,
+      "throughput": 5.19,
+      "ingress": { "min": 0.601, "p50": 0.892, "p90": 1.212, "p95": 1.346, "p99": 1.728, "max": 1.977, "mean": 0.935, "stddev": 0.236 },
+      "db_audit": { "min": 181.64, "p50": 186.42, "p90": 201.79, "p95": 202.84, "p99": 215.48, "max": 219.19, "mean": 191.83, "stddev": 8.72 },
+      "e2e": { "min": 182.82, "p50": 187.29, "p90": 202.69, "p95": 203.80, "p99": 216.44, "max": 220.25, "mean": 192.76, "stddev": 8.73 }
+    },
+    {
+      "suite": "Concurrent-5",
+      "concurrency": 5,
+      "count": 50,
+      "success": 50,
+      "duration_sec": 2.05,
+      "throughput": 24.41,
+      "ingress": { "min": 0.362, "p50": 0.710, "p90": 1.095, "p95": 1.282, "p99": 1.349, "max": 1.355, "mean": 0.754, "stddev": 0.241 },
+      "db_audit": { "min": 181.56, "p50": 185.08, "p90": 213.60, "p95": 322.25, "p99": 322.61, "max": 322.71, "mean": 202.81, "stddev": 40.56 },
+      "e2e": { "min": 182.23, "p50": 185.80, "p90": 214.22, "p95": 323.56, "p99": 323.94, "max": 324.05, "mean": 203.56, "stddev": 40.73 }
+    },
+    {
+      "suite": "Concurrent-10",
+      "concurrency": 10,
+      "count": 100,
+      "success": 100,
+      "duration_sec": 1.97,
+      "throughput": 50.66,
+      "ingress": { "min": 0.392, "p50": 0.735, "p90": 1.128, "p95": 1.287, "p99": 1.384, "max": 1.455, "mean": 0.788, "stddev": 0.251 },
+      "db_audit": { "min": 177.87, "p50": 199.15, "p90": 201.38, "p95": 201.59, "p99": 201.73, "max": 201.79, "mean": 193.00, "stddev": 8.97 },
+      "e2e": { "min": 179.16, "p50": 200.03, "p90": 202.07, "p95": 202.37, "p99": 202.51, "max": 202.56, "mean": 193.79, "stddev": 8.94 }
+    }
+  ]
+}

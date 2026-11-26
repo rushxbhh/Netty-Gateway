@@ -78,16 +78,16 @@ public final class JournalConsumer implements Runnable {
             long batchStartSequence = journalReader.consumerSequence();
 
             while (batch.size() < MAX_BATCH_SIZE) {
+                long expectedSequence = batchStartSequence + batch.size();
                 final JournalRecord record;
                 try {
-                    record = journalReader.readNext();
+                    record = journalReader.readAt(expectedSequence);
                 } catch (IOException integrityFailure) {
                     throw new IllegalStateException("Journal integrity/protocol failure", integrityFailure);
                 }
 
                 if (record == null) break; // No more records available right now.
 
-                long expectedSequence = batchStartSequence + batch.size();
                 if (record.sequenceId() != expectedSequence) {
                     throw new IllegalStateException("Journal ordering failure: expected sequence "
                             + expectedSequence + ", received " + record.sequenceId());

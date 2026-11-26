@@ -1,8 +1,8 @@
 # ULL-FLIG: Project Status & Execution Log
 
-**Document Version:** 1.4.0  
+**Document Version:** 1.5.0  
 **Status Date:** November 26, 2026  
-**Current Phase:** Phase 4 Complete (Fresh Benchmark Run) $\rightarrow$ Entering Phase 5 (Observability & Demo Runbook)  
+**Current Phase:** Phase 4 Complete (Batch DB Commit + Singapore DB) $\rightarrow$ Entering Phase 5 (Observability & Demo Runbook)  
 **Project Name:** ULL-FLIG (Ultra-Low-Latency Financial Ledger & Ingress Gateway)  
 **Project Title:** Design and Implementation of a Low-Latency Transaction Ingress and Audit Gateway  
 **Institution:** Medicaps University, Indore — Department of Computer Science and Engineering  
@@ -17,13 +17,13 @@ This document tracks the execution roadmap and technical status for the **ULL-FL
 
 - **Phase 0 (Repository Audit and Baseline):** Completed on Nov 25, 2026.
 - **Phase 1 (System Stabilization):** Completed on Nov 25, 2026.
-- **Phase 2 (Frontend & Demonstration Interface):** Completed on Nov 25, 2026.
+- **Phase 2 (Frontend & Demonstration Interface):** Completed on Nov 25, 2026; **Redesigned on Nov 26, 2026** (light examiner-ready theme, interactive Chart.js v4 performance dashboards, animated SVG pipeline architecture diagram, zero dev notes on hosted page).
 - **Phase 3 (End-to-End Reliability & Boundary Testing):** **COMPLETED on Nov 26, 2026.**
   - **Comprehensive 12-Scenario Automated Suite (`EndToEndReliabilityTestSuite`):** Tested valid transfers, deposits, withdrawals, negative amounts, zero amounts, self-transfers, system transfers, malformed buffers, duplicate in-flight transactions, sequential monotonicity, concurrent multi-client submissions, and abrupt client disconnect handling.
   - **Mid-Stream Restart Recovery:** Tested mid-flight cluster teardown and restart; ring magic `G12RING1`, `streamId`, and sequence counters persisted without reset or duplication.
-- **Phase 4 (Performance Benchmarking):** **COMPLETED (re-run Nov 26, 2026 — 300/300 success).**
+- **Phase 4 (Performance Benchmarking):** **COMPLETED (re-run Nov 26, 2026 with JDBC batch commits + Neon Singapore DB — 300/300 success).**
   - **C++ Sequencer Engine Benchmark:** 24.83 M ops/sec throughput, p50 latency of 47 CPU cycles (~14 ns), p99 = 54 cycles (~16 ns). SSE4.2 hardware CRC32C.
-  - **Pipeline Latency Benchmark (fresh run):** Gateway ingress p50 = 1.08–2.40 ms (sub-5 ms all suites). Neon Cloud DB commit p50 = 199–1752 ms (scales with concurrency due to cloud connection pooling). **100% success rate across all 300 transactions** (4 suites: Sequential-50, Sequential-100, Concurrent-5, Concurrent-10).
+  - **Pipeline Latency Benchmark (batch mode + Singapore DB):** Gateway ingress p50 = **0.71–1.21 ms** (sub-millisecond at concurrency). Neon Singapore DB batch commit p50 = **185–199 ms** across all concurrency levels (down from 1,752 ms at Concurrency=10 — an **8.8x reduction**). Throughput scaled from **5.00 tx/sec** (Concurrency=1) to **50.66 tx/sec** (Concurrency=10) with **100% success rate across all 300 transactions**.
   - **Charts generated:** `benchmark-charts/` (4 PNG charts: latency percentiles, throughput, ingress-vs-DB breakdown, concurrency scaling).
   - **Raw output:** `latency_benchmark_results.json` updated with fresh run metrics.
 - **Next Phase:** Phase 5 (Observability & External Examiner Demonstration Runbook).

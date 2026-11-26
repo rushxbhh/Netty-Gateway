@@ -1,6 +1,6 @@
 {
   "environment": {
-    "os": "Windows 11 (amd64)",
+    "os": "Windows 11 (x86-64)",
     "jvm": "21.0.4 (Oracle Corporation)",
     "processors": 12,
     "database": "PostgreSQL 16 (Neon Serverless AWS us-east-2 Ohio)",

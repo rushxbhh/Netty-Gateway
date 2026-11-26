@@ -1,693 +1,488 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ULL-FLIG | Ultra-Low-Latency Transaction Ingress & Audit Gateway</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'monospace']
-                    },
-                    colors: {
-                        surface: {
-                            DEFAULT: '#0B0F17',
-                            card: '#111827',
-                            border: '#1F2937',
-                            hover: '#1A2333'
-                        },
-                        brand: {
-                            emerald: '#10B981',
-                            cyan: '#06B6D4',
-                            amber: '#F59E0B',
-                            crimson: '#EF4444'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body { background-color: #070B12; color: #E5E7EB; }
-        .glass-panel { background: rgba(17, 24, 39, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.07); }
-        .glow-emerald { box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.25); }
-        .glow-cyan { box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.25); }
-        .pulse-dot { animation: pulseDot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes pulseDot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #0B0F17; }
-        ::-webkit-scrollbar-thumb { background: #1F2937; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #374151; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ULL-FLIG — Transaction Ingress &amp; Audit Gateway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
-<body class="min-h-screen font-sans antialiased text-slate-200">
+<body>
 
-    <!-- Top Navigation Bar -->
-    <header class="sticky top-0 z-50 border-b border-surface-border glass-panel">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center font-mono font-bold text-black text-xl shadow-lg shadow-cyan-500/20">
-                    G12
-                </div>
-                <div>
-                    <div class="flex items-center space-x-2">
-                        <span class="font-extrabold tracking-tight text-white text-lg">ULL-FLIG</span>
-                        <span class="px-2 py-0.5 text-xs font-semibold font-mono rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">v1.0-LIVE</span>
-                    </div>
-                    <p class="text-xs text-slate-400">Ultra-Low-Latency Transaction Ingress & Audit Gateway</p>
-                </div>
-            </div>
+<header class="topbar">
+  <a href="#" class="brand" onclick="switchView('live');return false;">
+    <div class="brand-mark">G12</div>
+    <div>
+      <div class="brand-title">ULL-FLIG <span class="brand-tag">SPSC · NIGT</span></div>
+      <div class="brand-sub">Low-Latency Transaction Ingress &amp; Audit Gateway</div>
+    </div>
+  </a>
 
-            <div class="flex items-center space-x-6 text-sm">
-                <!-- Gateway Connection Status -->
-                <div class="flex items-center space-x-2">
-                    <span id="wsStatusDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 pulse-dot"></span>
-                    <span class="text-xs text-slate-400 font-medium">Gateway WS:</span>
-                    <span id="wsStatusText" class="text-xs font-mono font-semibold text-amber-400">CONNECTING</span>
-                </div>
+  <nav class="nav-tabs" aria-label="Dashboard sections">
+    <button class="nav-tab active" id="navLive" onclick="switchView('live')">Live Gateway</button>
+    <button class="nav-tab" id="navArch" onclick="switchView('arch')">Architecture</button>
+    <button class="nav-tab" id="navBench" onclick="switchView('bench')">Performance</button>
+  </nav>
 
-                <!-- Database Status -->
-                <div class="flex items-center space-x-2">
-                    <span id="dbStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-600"></span>
-                    <span class="text-xs text-slate-400 font-medium">PostgreSQL:</span>
-                    <span id="dbStatusText" class="text-xs font-mono font-semibold text-slate-400">CHECKING</span>
-                </div>
+  <div class="topbar-right">
+    <div class="status-item">
+      <span class="dot amber" id="wsDot"></span>
+      <span class="status-label">WebSocket</span>
+      <span class="status-val amber" id="wsVal">CONNECTING</span>
+    </div>
+    <div class="status-item">
+      <span class="dot" id="dbDot"></span>
+      <span class="status-label">PostgreSQL</span>
+      <span class="status-val" id="dbVal" style="color:var(--text-3)">CHECKING</span>
+    </div>
+    <div class="clock-box">
+      <span class="clock-time" id="clock">--:--:--</span>
+      <span class="clock-label">UTC</span>
+    </div>
+  </div>
+</header>
 
-                <!-- Clock -->
-                <div class="hidden sm:block text-right font-mono text-xs text-slate-400 border-l border-surface-border pl-6">
-                    <div id="liveClock" class="text-white font-medium">00:00:00 UTC</div>
-                    <div class="text-[10px] text-slate-500">ENGINE TIME</div>
-                </div>
-            </div>
+<main class="page">
+
+<!-- ═══════════════════════════════════════════════════════ LIVE GATEWAY -->
+<section class="view active" id="viewLive">
+
+  <!-- Ring Telemetry Strip -->
+  <div class="grid-3 mb-14">
+    <div class="panel ring-panel">
+      <div class="ring-head">
+        <div class="ring-title"><span class="dot green"></span> Inbound Ring</div>
+        <div class="ring-route">Gateway → Sequencer</div>
+      </div>
+      <div class="ring-metrics">
+        <div><div class="ring-k">Producer</div><div class="ring-v" id="inboundProducer">0</div></div>
+        <div><div class="ring-k">Consumer</div><div class="ring-v blue" id="inboundConsumer">0</div></div>
+        <div><div class="ring-k">Depth</div><div class="ring-v" id="inboundDepth">0</div></div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="inboundBar" style="width:0%;background:var(--blue)"></div></div>
+      <div class="ring-foot"><span>g12-inbound.ring</span><span>65,536 slots · 128 B</span></div>
+    </div>
+
+    <div class="panel ring-panel">
+      <div class="ring-head">
+        <div class="ring-title"><span class="dot green"></span> Journal Ring</div>
+        <div class="ring-route">Sequencer → Audit</div>
+      </div>
+      <div class="ring-metrics">
+        <div><div class="ring-k">Sequenced</div><div class="ring-v" id="journalProducer">0</div></div>
+        <div><div class="ring-k">Audited</div><div class="ring-v green" id="journalConsumer">0</div></div>
+        <div><div class="ring-k">Depth</div><div class="ring-v" id="journalDepth">0</div></div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="journalBar" style="width:0%;background:var(--green)"></div></div>
+      <div class="ring-foot"><span>g12-journal.ring</span><span>1,048,576 slots · 64 B</span></div>
+    </div>
+
+    <div class="panel ring-panel">
+      <div class="ring-head">
+        <div class="ring-title"><span class="dot green"></span> ACK Ring</div>
+        <div class="ring-route">Audit → Gateway</div>
+      </div>
+      <div class="ring-metrics">
+        <div><div class="ring-k">Produced</div><div class="ring-v" id="ackProducer">0</div></div>
+        <div><div class="ring-k">Delivered</div><div class="ring-v purple" id="ackConsumer">0</div></div>
+        <div><div class="ring-k">Depth</div><div class="ring-v" id="ackDepth">0</div></div>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="ackBar" style="width:0%;background:var(--purple)"></div></div>
+      <div class="ring-foot"><span>g12-ack.ring</span><span>65,536 slots · 64 B</span></div>
+    </div>
+  </div>
+
+  <!-- Control Rail + Pipeline Tracker + Console -->
+  <div class="workspace-grid mb-14">
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <div class="panel-title">Transaction Ingress</div>
+          <div class="panel-sub">60-byte FlatBuffer · schema <code class="mono">NIGT</code></div>
         </div>
-    </header>
+      </div>
+      <div class="panel-body">
+        <div class="type-tabs">
+          <button type="button" class="type-tab active-transfer" id="tabT" onclick="selectType(0)">TRANSFER</button>
+          <button type="button" class="type-tab" id="tabD" onclick="selectType(1)">DEPOSIT</button>
+          <button type="button" class="type-tab" id="tabW" onclick="selectType(2)">WITHDRAWAL</button>
+        </div>
 
-    <!-- Main Container -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-
-        <!-- Top Telemetry Cards -->
-        <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Inbound Ring Card -->
-            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden border border-cyan-500/20">
-                <div class="flex items-center justify-between pb-3 border-b border-surface-border">
-                    <div class="flex items-center space-x-2">
-                        <div class="w-2 h-2 rounded-full bg-cyan-400"></div>
-                        <h3 class="font-bold text-sm text-white tracking-wide uppercase">Inbound Ring</h3>
-                    </div>
-                    <span class="text-[11px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">Gateway &rarr; Sequencer</span>
-                </div>
-                <div class="mt-4 grid grid-cols-2 gap-4">
-                    <div>
-                        <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">Producer Seq</div>
-                        <div id="inboundProducer" class="text-2xl font-bold font-mono text-white mt-1">0</div>
-                    </div>
-                    <div>
-                        <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">Consumer Seq</div>
-                        <div id="inboundConsumer" class="text-2xl font-bold font-mono text-cyan-300 mt-1">0</div>
-                    </div>
-                </div>
-                <div class="mt-4 pt-3 border-t border-surface-border/50 flex justify-between text-xs font-mono text-slate-400">
-                    <span>Depth: <strong id="inboundDepth" class="text-white">0</strong></span>
-                    <span>Cap: 65,536 (128B)</span>
-                </div>
+        <form id="txnForm" onsubmit="submitForm(event)">
+          <div class="form-grid">
+            <div>
+              <label class="form-label" for="txnId">Transaction ID</label>
+              <input class="form-input" type="number" id="txnId" required>
             </div>
-
-            <!-- Journal Ring Card -->
-            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden border border-emerald-500/20">
-                <div class="flex items-center justify-between pb-3 border-b border-surface-border">
-                    <div class="flex items-center space-x-2">
-                        <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
-                        <h3 class="font-bold text-sm text-white tracking-wide uppercase">Journal Ring</h3>
-                    </div>
-                    <span class="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Sequencer &rarr; Audit</span>
-                </div>
-                <div class="mt-4 grid grid-cols-2 gap-4">
-                    <div>
-                        <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">Sequenced Seq</div>
-                        <div id="journalProducer" class="text-2xl font-bold font-mono text-white mt-1">0</div>
-                    </div>
-                    <div>
-                        <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">Audited Seq</div>
-                        <div id="journalConsumer" class="text-2xl font-bold font-mono text-emerald-300 mt-1">0</div>
-                    </div>
-                </div>
-                <div class="mt-4 pt-3 border-t border-surface-border/50 flex justify-between text-xs font-mono text-slate-400">
-                    <span>Depth: <strong id="journalDepth" class="text-white">0</strong></span>
-                    <span>Cap: 1,048,576 (64B)</span>
-                </div>
+            <div>
+              <label class="form-label" for="amount">Amount (cents)</label>
+              <input class="form-input" type="number" id="amount" value="2500" required>
             </div>
-
-            <!-- ACK Ring Card -->
-            <div class="glass-panel rounded-2xl p-6 relative overflow-hidden border border-purple-500/20">
-                <div class="flex items-center justify-between pb-3 border-b border-surface-border">
-                    <div class="flex items-center space-x-2">
-                        <div class="w-2 h-2 rounded-full bg-purple-400"></div>
-                        <h3 class="font-bold text-sm text-white tracking-wide uppercase">ACK Ring</h3>
-                    </div>
-                    <span class="text-[11px] font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">Audit &rarr; Gateway</span>
-                </div>
-                <div class="mt-4 grid grid-cols-2 gap-4">
-                    <div>
-                        <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">ACK Produced</div>
-                        <div id="ackProducer" class="text-2xl font-bold font-mono text-white mt-1">0</div>
-                    </div>
-                    <div>
-                        <div class="text-xs text-slate-400 uppercase tracking-wider font-mono">ACK Delivered</div>
-                        <div id="ackConsumer" class="text-2xl font-bold font-mono text-purple-300 mt-1">0</div>
-                    </div>
-                </div>
-                <div class="mt-4 pt-3 border-t border-surface-border/50 flex justify-between text-xs font-mono text-slate-400">
-                    <span>Depth: <strong id="ackDepth" class="text-white">0</strong></span>
-                    <span>Cap: 65,536 (64B)</span>
-                </div>
+          </div>
+          <div class="form-grid" style="margin-bottom:14px">
+            <div>
+              <label class="form-label" for="fromAccount">Source Account</label>
+              <input class="form-input" type="number" id="fromAccount" value="101">
             </div>
-        </section>
-
-        <!-- Transaction Execution & Lifecycle Row -->
-        <section class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            <!-- Left Form Column (5 Cols) -->
-            <div class="lg:col-span-5 space-y-6">
-                <div class="glass-panel rounded-2xl p-6 border border-surface-border">
-                    <div class="flex items-center justify-between pb-4 mb-4 border-b border-surface-border">
-                        <h2 class="text-base font-bold text-white tracking-wide flex items-center space-x-2">
-                            <span>Execute Transaction</span>
-                        </h2>
-                        <span class="text-xs font-mono text-slate-400">FlatBuffers NIGT</span>
-                    </div>
-
-                    <!-- Type Selector Tabs -->
-                    <div class="grid grid-cols-3 gap-2 p-1 bg-surface-hover rounded-xl mb-5">
-                        <button id="tabTransfer" onclick="selectType(0)" class="py-2 text-xs font-bold rounded-lg transition-all bg-emerald-500 text-black shadow-md">TRANSFER</button>
-                        <button id="tabDeposit" onclick="selectType(1)" class="py-2 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white">DEPOSIT</button>
-                        <button id="tabWithdrawal" onclick="selectType(2)" class="py-2 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white">WITHDRAWAL</button>
-                    </div>
-
-                    <form id="txnForm" onsubmit="submitForm(event)" class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-mono text-slate-400 mb-1">Transaction ID</label>
-                                <input type="number" id="txnId" required class="w-full bg-slate-900 border border-surface-border rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-500">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-mono text-slate-400 mb-1">Amount ($ / Cents)</label>
-                                <div class="relative">
-                                    <input type="number" id="amount" step="1" required class="w-full bg-slate-900 border border-surface-border rounded-lg pl-6 pr-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-500" value="2500">
-                                    <span class="absolute left-2.5 top-2 text-xs font-mono text-slate-500">$</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-mono text-slate-400 mb-1">Source Account</label>
-                                <input type="number" id="fromAccount" required class="w-full bg-slate-900 border border-surface-border rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-500" value="101">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-mono text-slate-400 mb-1">Destination Account</label>
-                                <input type="number" id="toAccount" required class="w-full bg-slate-900 border border-surface-border rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-cyan-500" value="202">
-                            </div>
-                        </div>
-
-                        <div class="pt-2">
-                            <button type="submit" id="submitBtn" class="w-full py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-cyan-500 to-emerald-500 text-black hover:opacity-95 transition-all shadow-lg shadow-cyan-500/20 active:scale-[0.99] flex items-center justify-center space-x-2">
-                                <span id="submitSpinner" class="hidden w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
-                                <span id="submitText">Submit Binary Transaction</span>
-                            </button>
-                        </div>
-                    </form>
-
-                    <!-- Fast Quick-Test Presets -->
-                    <div class="mt-6 pt-5 border-t border-surface-border">
-                        <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400 mb-2">Examiner Test Scenarios</div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <button onclick="applyPreset(101, 202, 2500, 0)" class="px-3 py-2 text-xs font-mono bg-surface-hover hover:bg-slate-800 border border-surface-border rounded-lg text-slate-300 text-left transition-all">
-                                &bull; Valid Transfer ($25)
-                            </button>
-                            <button onclick="applyPreset(0, 202, 10000, 1)" class="px-3 py-2 text-xs font-mono bg-surface-hover hover:bg-slate-800 border border-surface-border rounded-lg text-slate-300 text-left transition-all">
-                                &bull; Valid Deposit ($100)
-                            </button>
-                            <button onclick="applyPreset(101, 0, 5000, 2)" class="px-3 py-2 text-xs font-mono bg-surface-hover hover:bg-slate-800 border border-surface-border rounded-lg text-slate-300 text-left transition-all">
-                                &bull; Valid Withdrawal ($50)
-                            </button>
-                            <button onclick="applyPreset(101, 202, 0, 0)" class="px-3 py-2 text-xs font-mono bg-red-950/30 hover:bg-red-900/40 border border-red-500/20 rounded-lg text-red-300 text-left transition-all">
-                                &times; Reject: Zero Amount
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            <div>
+              <label class="form-label" for="toAccount">Destination Account</label>
+              <input class="form-input" type="number" id="toAccount" value="202">
             </div>
+          </div>
+          <button class="btn-primary" type="submit" id="submitBtn">
+            <div class="spinner" id="submitSpinner"></div>
+            <span id="submitText">Send Binary Transaction</span>
+          </button>
+        </form>
 
-            <!-- Right Lifecycle Tracker (7 Cols) -->
-            <div class="lg:col-span-7 space-y-6">
-                <div class="glass-panel rounded-2xl p-6 border border-surface-border">
-                    <div class="flex items-center justify-between pb-4 mb-6 border-b border-surface-border">
-                        <div>
-                            <h2 class="text-base font-bold text-white tracking-wide">5-Stage Deterministic Transaction Lifecycle</h2>
-                            <p class="text-xs text-slate-400 mt-0.5">Real-time state progression with strict Ingress vs Persistence separation</p>
-                        </div>
-                        <div id="lifecycleLatency" class="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                            AWAITING SUBMISSION
-                        </div>
-                    </div>
+        <hr class="divider">
+        <div class="section-label">Test Scenarios</div>
+        <div class="presets-grid">
+          <button type="button" class="preset-btn" onclick="applyPreset(101,202,2500,0)">Transfer $25</button>
+          <button type="button" class="preset-btn" onclick="applyPreset(0,202,10000,1)">Deposit $100</button>
+          <button type="button" class="preset-btn" onclick="applyPreset(101,0,5000,2)">Withdraw $50</button>
+          <button type="button" class="preset-btn reject" onclick="applyPreset(101,202,0,0)">Zero Amount (Reject)</button>
+        </div>
+      </div>
+    </div>
 
-                    <!-- 5 Stepper Visualizer -->
-                    <div class="space-y-4">
-                        
-                        <!-- Step 1: SUBMITTED -->
-                        <div id="step1" class="p-4 rounded-xl border border-surface-border bg-slate-900/60 transition-all flex items-start space-x-4">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs bg-slate-800 text-slate-400 step-badge">1</div>
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <div class="font-bold text-sm text-white">Client Binary Submission</div>
-                                    <span class="text-xs font-mono text-slate-500 step-time">--</span>
-                                </div>
-                                <div class="text-xs text-slate-400 mt-1">Binary FlatBuffer payload formatted with schema header <code class="text-cyan-400">NIGT</code> (60 bytes) and transmitted via WebSocket.</div>
-                            </div>
-                        </div>
-
-                        <!-- Step 2: INGRESS ACCEPTED -->
-                        <div id="step2" class="p-4 rounded-xl border border-surface-border bg-slate-900/60 transition-all flex items-start space-x-4">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs bg-slate-800 text-slate-400 step-badge">2</div>
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <div class="font-bold text-sm text-white">Netty Gateway Ingress Acceptance</div>
-                                    <span class="text-xs font-mono text-slate-500 step-time">--</span>
-                                </div>
-                                <div class="text-xs text-slate-400 mt-1">Business fields validated; published to 128B inbound ring slot by writer thread. Emitted <code class="text-amber-400">ACCEPT|stage=INGRESS</code>.</div>
-                            </div>
-                        </div>
-
-                        <!-- Step 3: SEQUENCED -->
-                        <div id="step3" class="p-4 rounded-xl border border-surface-border bg-slate-900/60 transition-all flex items-start space-x-4">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs bg-slate-800 text-slate-400 step-badge">3</div>
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <div class="font-bold text-sm text-white">C++20 Sequencer Deterministic Ordering</div>
-                                    <span class="text-xs font-mono text-slate-500 step-time">--</span>
-                                </div>
-                                <div class="text-xs text-slate-400 mt-1">Acquired from inbound ring; monotonic <code class="text-cyan-400">sequenceId</code> assigned; RDTSC tick recorded; SSE4.2 CRC32C calculated; 64B cache-aligned journal slot published.</div>
-                            </div>
-                        </div>
-
-                        <!-- Step 4: AUDIT PERSISTED -->
-                        <div id="step4" class="p-4 rounded-xl border border-surface-border bg-slate-900/60 transition-all flex items-start space-x-4">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs bg-slate-800 text-slate-400 step-badge">4</div>
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <div class="font-bold text-sm text-white">PostgreSQL Audit Persistence</div>
-                                    <span class="text-xs font-mono text-slate-500 step-time">--</span>
-                                </div>
-                                <div class="text-xs text-slate-400 mt-1">CRC32C and sequence integrity verified; row committed to <code class="text-emerald-400">transaction_audit</code> table under stream key.</div>
-                            </div>
-                        </div>
-
-                        <!-- Step 5: ACKNOWLEDGED -->
-                        <div id="step5" class="p-4 rounded-xl border border-surface-border bg-slate-900/60 transition-all flex items-start space-x-4">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs bg-slate-800 text-slate-400 step-badge">5</div>
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <div class="font-bold text-sm text-white">Asynchronous Client Acknowledgement</div>
-                                    <span class="text-xs font-mono text-slate-500 step-time">--</span>
-                                </div>
-                                <div class="text-xs text-slate-400 mt-1">Audit ACK ring published; Gateway reader routed confirmation to matching WebSocket connection: <code class="text-emerald-400">ACK|stage=AUDITED|status=PERSISTED</code>.</div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
+    <div class="right-stack">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">Pipeline Execution Trace</div>
+            <div class="panel-sub">Two-stage acknowledgement: ingress acceptance vs. durable PostgreSQL commit</div>
+          </div>
+          <span class="state-pill" id="lifecycleBadge">IDLE</span>
+        </div>
+        <div class="panel-body">
+          <div class="stepper-grid">
+            <div class="step-card" id="step1">
+              <div class="step-top"><span class="step-idx">1</span><span class="step-name">Client Frame</span></div>
+              <div class="step-desc">60 B FlatBuffer sent over WebSocket.</div>
+              <div class="step-meta" id="st1">—</div>
             </div>
-
-        </section>
-
-        <!-- Live PostgreSQL Audit Ledger Table -->
-        <section class="glass-panel rounded-2xl p-6 border border-surface-border">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 mb-4 border-b border-surface-border gap-4">
-                <div>
-                    <h2 class="text-base font-bold text-white tracking-wide">Durable PostgreSQL Audit Ledger</h2>
-                    <p class="text-xs text-slate-400 mt-0.5">Direct query from <code class="text-cyan-400">transaction_audit</code> table (Neon Cloud)</p>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <button onclick="fetchAuditLog()" class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-surface-hover hover:bg-slate-800 border border-surface-border text-slate-300 transition-all flex items-center space-x-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                        <span>Refresh Table</span>
-                    </button>
-                    <span id="auditCountBadge" class="text-xs font-mono bg-slate-800 px-2.5 py-1 rounded text-slate-400">0 Records</span>
-                </div>
+            <div class="step-card" id="step2">
+              <div class="step-top"><span class="step-idx">2</span><span class="step-name">Netty Ingress</span></div>
+              <div class="step-desc">Validated &amp; pushed to Inbound Ring.</div>
+              <div class="step-meta" id="st2">—</div>
             </div>
-
-            <!-- Ledger Table -->
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs font-mono border-collapse">
-                    <thead>
-                        <tr class="border-b border-surface-border text-slate-400 uppercase text-[11px] tracking-wider">
-                            <th class="py-3 px-3">Sequence</th>
-                            <th class="py-3 px-3">Txn ID</th>
-                            <th class="py-3 px-3">Type</th>
-                            <th class="py-3 px-3">From</th>
-                            <th class="py-3 px-3">To</th>
-                            <th class="py-3 px-3 text-right">Amount ($)</th>
-                            <th class="py-3 px-3">Status</th>
-                            <th class="py-3 px-3">Checksum</th>
-                            <th class="py-3 px-3 text-right">Audited At</th>
-                        </tr>
-                    </thead>
-                    <tbody id="auditTableBody" class="divide-y divide-surface-border/50 text-slate-300">
-                        <tr>
-                            <td colspan="9" class="py-8 text-center text-slate-500">Loading audit records from PostgreSQL...</td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="step-card" id="step3">
+              <div class="step-top"><span class="step-idx">3</span><span class="step-name">C++ Sequencer</span></div>
+              <div class="step-desc">Monotonic seqId, RDTSC, CRC32C.</div>
+              <div class="step-meta" id="st3">—</div>
             </div>
-        </section>
-
-        <!-- Live WebSocket Terminal Activity Log -->
-        <section class="glass-panel rounded-2xl p-6 border border-surface-border">
-            <div class="flex items-center justify-between pb-3 mb-3 border-b border-surface-border">
-                <h3 class="text-xs font-bold text-white uppercase tracking-wider font-mono">Live WebSocket Frame Stream</h3>
-                <button onclick="clearLogs()" class="text-[11px] font-mono text-slate-400 hover:text-white transition-all">Clear</button>
+            <div class="step-card" id="step4">
+              <div class="step-top"><span class="step-idx">4</span><span class="step-name">Audit Commit</span></div>
+              <div class="step-desc">CRC32C verified &amp; JDBC batch commit.</div>
+              <div class="step-meta" id="st4">—</div>
             </div>
-            <div id="eventConsole" class="h-40 overflow-y-auto font-mono text-xs space-y-1.5 p-3 rounded-xl bg-slate-950 border border-slate-900 text-slate-400">
-                <div class="text-slate-600">-- Engine WebSocket Console Initialized --</div>
+            <div class="step-card" id="step5">
+              <div class="step-top"><span class="step-idx">5</span><span class="step-name">ACK Return</span></div>
+              <div class="step-desc">Routed via ACK Ring to WebSocket.</div>
+              <div class="step-meta" id="st5">—</div>
             </div>
-        </section>
+          </div>
+        </div>
+      </div>
 
-    </main>
+      <div class="panel" style="flex:1;display:flex;flex-direction:column">
+        <div class="panel-head">
+          <div class="panel-title mono" style="font-size:12px">WebSocket Frame Stream</div>
+          <button type="button" class="btn-sm" onclick="clearConsole()">Clear</button>
+        </div>
+        <div class="panel-body" style="flex:1">
+          <div class="console-wrap" id="console">
+            <span class="log-info">— Gateway WebSocket console ready —</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <!-- JavaScript Application Logic -->
-    <script>
-        let ws = null;
-        let currentType = 0; // 0=TRANSFER, 1=DEPOSIT, 2=WITHDRAWAL
-        let nextTxnId = Date.now() % 1000000;
-        let submitTimestamp = 0;
+  </div>
 
-        document.getElementById('txnId').value = nextTxnId;
+  <!-- Durable Audit Ledger -->
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <div class="panel-title">Durable Audit Ledger</div>
+        <div class="panel-sub">Latest rows from <code class="mono">transaction_audit</code> (PostgreSQL)</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="mono" id="auditBadge" style="font-size:11px;color:var(--text-3)">0 records</span>
+        <button type="button" class="btn-sm" onclick="fetchAudit()">Refresh</button>
+      </div>
+    </div>
+    <div class="overflow-x">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Seq</th><th>Txn ID</th><th>Type</th>
+            <th>From</th><th>To</th><th style="text-align:right">Amount</th>
+            <th>Status</th><th>CRC32C</th><th style="text-align:right">Audited At</th>
+          </tr>
+        </thead>
+        <tbody id="auditBody">
+          <tr><td colspan="9" class="tbl-empty">Loading audit records…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-        // Clock
-        function updateClock() {
-            document.getElementById('liveClock').textContent = new Date().toUTCString().slice(17, 25) + ' UTC';
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
+</section>
 
-        // WebSocket Connection
-        function connectWebSocket() {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const host = window.location.host || 'localhost:8080';
-            const url = `${protocol}//${host}/ws`;
+<!-- ═══════════════════════════════════════════════════════ ARCHITECTURE -->
+<section class="view" id="viewArch">
 
-            logEvent(`[WS] Connecting to ${url}...`, 'text-cyan-400');
-            ws = new WebSocket(url);
-            ws.binaryType = 'arraybuffer';
+  <div class="panel mb-16">
+    <div class="panel-head">
+      <div>
+        <div class="panel-title">System Architecture — Lock-Free SPSC Shared-Memory Pipeline</div>
+        <div class="panel-sub">End-to-end binary write path and asynchronous ACK return path</div>
+      </div>
+    </div>
+    <div class="arch-wrap">
+      <svg class="arch-svg" viewBox="0 0 1120 280" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrGray" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+            <polygon points="0 0, 7 2.5, 0 5" fill="#64748B"/>
+          </marker>
+          <marker id="arrPurple" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+            <polygon points="0 0, 7 2.5, 0 5" fill="#6D28D9"/>
+          </marker>
+        </defs>
 
-            ws.onopen = () => {
-                document.getElementById('wsStatusDot').className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-md shadow-emerald-500/50';
-                document.getElementById('wsStatusText').className = 'text-xs font-mono font-semibold text-emerald-400';
-                document.getElementById('wsStatusText').textContent = 'CONNECTED';
-                logEvent(`[WS] Handshake established with Netty Gateway`, 'text-emerald-400');
-            };
+        <!-- Client -->
+        <rect x="16" y="74" width="136" height="104" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/>
+        <rect x="16" y="74" width="136" height="4" rx="2" fill="#334155"/>
+        <text x="84" y="106" font-family="Inter,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">WebSocket Client</text>
+        <text x="84" y="126" font-family="JetBrains Mono,monospace" font-size="10" fill="#64748B" text-anchor="middle">60 B FlatBuffer</text>
+        <text x="84" y="142" font-family="JetBrains Mono,monospace" font-size="10" fill="#64748B" text-anchor="middle">Schema: NIGT</text>
+        <text x="84" y="158" font-family="JetBrains Mono,monospace" font-size="10" fill="#64748B" text-anchor="middle">ws://:8080/ws</text>
 
-            ws.onmessage = (event) => {
-                const message = event.data;
-                logEvent(`[WS IN] ${message}`, message.startsWith('ACK') ? 'text-emerald-400 font-bold' : message.startsWith('ACCEPT') ? 'text-amber-400' : 'text-rose-400');
-                handleGatewayMessage(message);
-            };
+        <!-- Path 1 -->
+        <path id="p1" d="M153 126 L235 126" stroke="#94A3B8" stroke-width="1.5" fill="none" marker-end="url(#arrGray)"/>
+        <circle r="4" fill="#1D4ED8" opacity="0">
+          <animateMotion dur="1.8s" repeatCount="indefinite" begin="0s"><mpath href="#p1"/></animateMotion>
+          <animate attributeName="opacity" values="0;1;1;0" dur="1.8s" repeatCount="indefinite" begin="0s"/>
+        </circle>
+        <text x="194" y="116" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#64748B" text-anchor="middle">Binary WS</text>
 
-            ws.onerror = (error) => {
-                logEvent(`[WS ERR] Connection error`, 'text-rose-400');
-            };
+        <!-- Netty Gateway -->
+        <rect x="237" y="60" width="160" height="132" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/>
+        <rect x="237" y="60" width="160" height="4" rx="2" fill="#1D4ED8"/>
+        <text x="317" y="92" font-family="Inter,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">Netty Gateway</text>
+        <text x="317" y="113" font-family="JetBrains Mono,monospace" font-size="10" fill="#475569" text-anchor="middle">TransactionValidator</text>
+        <text x="317" y="129" font-family="JetBrains Mono,monospace" font-size="10" fill="#475569" text-anchor="middle">MappedSpscRingWriter</text>
+        <text x="317" y="145" font-family="JetBrains Mono,monospace" font-size="10" fill="#475569" text-anchor="middle">PendingRequestRegistry</text>
+        <text x="317" y="161" font-family="JetBrains Mono,monospace" font-size="10" fill="#1D4ED8" text-anchor="middle">Ingress p50: ~0.7 ms</text>
 
-            ws.onclose = () => {
-                document.getElementById('wsStatusDot').className = 'w-2.5 h-2.5 rounded-full bg-rose-500 pulse-dot';
-                document.getElementById('wsStatusText').className = 'text-xs font-mono font-semibold text-rose-400';
-                document.getElementById('wsStatusText').textContent = 'DISCONNECTED';
-                logEvent(`[WS] Disconnected. Reconnecting in 3s...`, 'text-rose-400');
-                setTimeout(connectWebSocket, 3000);
-            };
-        }
+        <!-- Path 2 -->
+        <path id="p2" d="M398 126 L484 126" stroke="#94A3B8" stroke-width="1.5" fill="none" marker-end="url(#arrGray)"/>
+        <circle r="4" fill="#1D4ED8" opacity="0">
+          <animateMotion dur="1.8s" repeatCount="indefinite" begin="0.45s"><mpath href="#p2"/></animateMotion>
+          <animate attributeName="opacity" values="0;1;1;0" dur="1.8s" repeatCount="indefinite" begin="0.45s"/>
+        </circle>
+        <rect x="405" y="102" width="72" height="16" rx="3" fill="#EFF6FF" stroke="#BFDBFE"/>
+        <text x="441" y="113" font-family="JetBrains Mono,monospace" font-size="9" fill="#1D4ED8" text-anchor="middle">Inbound Ring</text>
 
-        connectWebSocket();
+        <!-- C++20 Sequencer -->
+        <rect x="486" y="60" width="160" height="132" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/>
+        <rect x="486" y="60" width="160" height="4" rx="2" fill="#047857"/>
+        <text x="566" y="92" font-family="Inter,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">C++20 Sequencer</text>
+        <text x="566" y="113" font-family="JetBrains Mono,monospace" font-size="10" fill="#475569" text-anchor="middle">Zero-Copy FlatBufView</text>
+        <text x="566" y="129" font-family="JetBrains Mono,monospace" font-size="10" fill="#475569" text-anchor="middle">Monotonic seqId + RDTSC</text>
+        <text x="566" y="145" font-family="JetBrains Mono,monospace" font-size="10" fill="#475569" text-anchor="middle">SSE4.2 HW CRC32C</text>
+        <text x="566" y="161" font-family="JetBrains Mono,monospace" font-size="10" fill="#047857" text-anchor="middle">24.8M ops/s · 47 cyc</text>
 
-        // Type selection tabs
-        function selectType(type) {
-            currentType = type;
-            const btnTransfer = document.getElementById('tabTransfer');
-            const btnDeposit = document.getElementById('tabDeposit');
-            const btnWithdrawal = document.getElementById('tabWithdrawal');
-            const from = document.getElementById('fromAccount');
-            const to = document.getElementById('toAccount');
+        <!-- Path 3 -->
+        <path id="p3" d="M647 126 L733 126" stroke="#94A3B8" stroke-width="1.5" fill="none" marker-end="url(#arrGray)"/>
+        <circle r="4" fill="#047857" opacity="0">
+          <animateMotion dur="1.8s" repeatCount="indefinite" begin="0.9s"><mpath href="#p3"/></animateMotion>
+          <animate attributeName="opacity" values="0;1;1;0" dur="1.8s" repeatCount="indefinite" begin="0.9s"/>
+        </circle>
+        <rect x="654" y="102" width="72" height="16" rx="3" fill="#ECFDF5" stroke="#A7F3D0"/>
+        <text x="690" y="113" font-family="JetBrains Mono,monospace" font-size="9" fill="#047857" text-anchor="middle">Journal Ring</text>
 
-            [btnTransfer, btnDeposit, btnWithdrawal].forEach(b => {
-                b.className = 'py-2 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white';
-            });
+        <!-- Java Audit Service -->
+        <rect x="735" y="60" width="160" height="132" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/>
+        <rect x="735" y="60" width="160" height="4" rx="2" fill="#B45309"/>
+        <text x="815" y="92" font-family="Inter,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">Java Audit Service</text>
+        <text x="815" y="113" font-family="JetBrains Mono,monospace" font-size="10" fill="#475569" text-anchor="middle">CRC32C Verification</text>
+        <text x="815" y="129" font-family="JetBrains Mono,monospace" font-size="10" fill="#475569" text-anchor="middle">JDBC Batch (max 32)</text>
+        <text x="815" y="145" font-family="JetBrains Mono,monospace" font-size="10" fill="#475569" text-anchor="middle">Idempotent UPSERT</text>
+        <text x="815" y="161" font-family="JetBrains Mono,monospace" font-size="10" fill="#B45309" text-anchor="middle">ACK Ring Publisher</text>
 
-            if (type === 0) {
-                btnTransfer.className = 'py-2 text-xs font-bold rounded-lg transition-all bg-emerald-500 text-black shadow-md';
-                from.value = 101; from.disabled = false;
-                to.value = 202; to.disabled = false;
-            } else if (type === 1) {
-                btnDeposit.className = 'py-2 text-xs font-bold rounded-lg transition-all bg-cyan-500 text-black shadow-md';
-                from.value = 0; from.disabled = true;
-                to.value = 202; to.disabled = false;
-            } else {
-                btnWithdrawal.className = 'py-2 text-xs font-bold rounded-lg transition-all bg-amber-500 text-black shadow-md';
-                from.value = 101; from.disabled = false;
-                to.value = 0; to.disabled = true;
-            }
-        }
+        <!-- Path 4 -->
+        <path id="p4" d="M896 126 L962 126" stroke="#94A3B8" stroke-width="1.5" fill="none" marker-end="url(#arrGray)"/>
+        <circle r="4" fill="#B45309" opacity="0">
+          <animateMotion dur="1.8s" repeatCount="indefinite" begin="1.35s"><mpath href="#p4"/></animateMotion>
+          <animate attributeName="opacity" values="0;1;1;0" dur="1.8s" repeatCount="indefinite" begin="1.35s"/>
+        </circle>
+        <text x="929" y="116" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#64748B" text-anchor="middle">JDBC</text>
 
-        function applyPreset(from, to, amount, type) {
-            selectType(type);
-            document.getElementById('fromAccount').value = from;
-            document.getElementById('toAccount').value = to;
-            document.getElementById('amount').value = amount;
-            document.getElementById('txnId').value = ++nextTxnId;
-        }
+        <!-- PostgreSQL -->
+        <rect x="964" y="74" width="140" height="104" rx="6" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="1.2"/>
+        <rect x="964" y="74" width="140" height="4" rx="2" fill="#334155"/>
+        <text x="1034" y="106" font-family="Inter,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">PostgreSQL 16</text>
+        <text x="1034" y="126" font-family="JetBrains Mono,monospace" font-size="10" fill="#64748B" text-anchor="middle">transaction_audit</text>
+        <text x="1034" y="142" font-family="JetBrains Mono,monospace" font-size="10" fill="#64748B" text-anchor="middle">PK(stream_id, seq)</text>
+        <text x="1034" y="158" font-family="JetBrains Mono,monospace" font-size="10" fill="#047857" text-anchor="middle">Durable Storage</text>
 
-        // Build FlatBuffer Binary (Exact schema format: 60 bytes with NIGT identifier)
-        function buildFlatBuffer(txnId, amount, fromAcct, toAcct, type) {
-            const buffer = new ArrayBuffer(60);
-            const view = new DataView(buffer);
+        <!-- ACK Return Path -->
+        <path id="pAck" d="M815 193 L815 236 L317 236 L317 194" stroke="#6D28D9" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#arrPurple)"/>
+        <circle r="4" fill="#6D28D9" opacity="0">
+          <animateMotion dur="2.4s" repeatCount="indefinite" begin="1.6s"><mpath href="#pAck"/></animateMotion>
+          <animate attributeName="opacity" values="0;1;1;1;0" dur="2.4s" repeatCount="indefinite" begin="1.6s"/>
+        </circle>
+        <rect x="492" y="227" width="148" height="18" rx="3" fill="#F5F3FF" stroke="#DDD6FE"/>
+        <text x="566" y="239" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#6D28D9" text-anchor="middle">ACK Ring · 64 B · 64K cap</text>
 
-            // [0..3]: root offset = 16 (uint32 LE)
-            view.setUint32(0, 16, true);
-            // [4..7]: identifier = 'NIGT'
-            view.setUint8(4, 0x4E); // 'N'
-            view.setUint8(5, 0x49); // 'I'
-            view.setUint8(6, 0x47); // 'G'
-            view.setUint8(7, 0x54); // 'T'
+        <!-- Legend -->
+        <line x1="16" y1="264" x2="34" y2="264" stroke="#94A3B8" stroke-width="2"/>
+        <text x="40" y="268" font-family="JetBrains Mono,monospace" font-size="10" fill="#64748B">Write path (shared-memory SPSC)</text>
+        <line x1="250" y1="264" x2="268" y2="264" stroke="#6D28D9" stroke-width="1.5" stroke-dasharray="4,2"/>
+        <text x="274" y="268" font-family="JetBrains Mono,monospace" font-size="10" fill="#6D28D9">Durable ACK return path</text>
+      </svg>
+    </div>
+  </div>
 
-            // Vtable at offset 8:
-            view.setUint16(8, 6, true);   // vtable size = 6
-            view.setUint16(10, 44, true); // object size = 44
-            view.setUint16(12, 4, true);  // field 0 offset = 4
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Two-Stage Acknowledgement Protocol</div></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:12px">
+        <div class="callout blue">
+          <strong>Stage 1 — Ingress Accept</strong><br>
+          <code>ACCEPT|stage=INGRESS|transactionId=…|inboundSequence=…</code><br>
+          Emitted immediately after FlatBuffer validation and inbound SPSC ring write. Does <strong>not</strong> imply sequencing or database persistence.
+        </div>
+        <div class="callout green">
+          <strong>Stage 2 — Durable Audit ACK</strong><br>
+          <code>ACK|stage=AUDITED|status=PERSISTED|journalSequence=…</code><br>
+          Emitted only after the C++ sequencer assigns a monotonic ID, the Audit Service verifies CRC32C, and PostgreSQL commits the transaction.
+        </div>
+      </div>
+    </div>
 
-            // Root table at offset 16:
-            view.setInt32(16, 8, true);   // vtable soffset = 8
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Shared-Memory Ring Buffer Contracts</div></div>
+      <div class="overflow-x">
+        <table class="tbl">
+          <thead>
+            <tr><th>Ring</th><th>Producer</th><th>Consumer</th><th style="text-align:right">Slot</th><th style="text-align:right">Capacity</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono text-blue font-bold">Inbound</td><td>Gateway Writer</td><td>C++ Sequencer</td><td class="mono" style="text-align:right">128 B</td><td class="mono" style="text-align:right">65,536</td></tr>
+            <tr><td class="mono text-green font-bold">Journal</td><td>C++ Sequencer</td><td>Audit Service</td><td class="mono" style="text-align:right">64 B</td><td class="mono" style="text-align:right">1,048,576</td></tr>
+            <tr><td class="mono text-purple font-bold">ACK</td><td>Audit Service</td><td>Gateway Reader</td><td class="mono" style="text-align:right">64 B</td><td class="mono" style="text-align:right">65,536</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-            // TransactionData struct at offset 20 (40 bytes):
-            view.setBigUint64(20, BigInt(txnId), true);
-            view.setBigInt64(28, BigInt(amount), true);
-            view.setBigUint64(36, BigInt(fromAcct), true);
-            view.setBigUint64(44, BigInt(toAcct), true);
-            view.setUint8(52, type);      // 0=TRANSFER, 1=DEPOSIT, 2=WITHDRAWAL
+</section>
 
-            return buffer;
-        }
+<!-- ═══════════════════════════════════════════════════════ PERFORMANCE -->
+<section class="view" id="viewBench">
 
-        // Form Submit
-        function submitForm(event) {
-            event.preventDefault();
-            if (!ws || ws.readyState !== WebSocket.OPEN) {
-                alert("WebSocket is not connected yet.");
-                return;
-            }
+  <div class="grid-4 mb-16">
+    <div class="panel kpi-card">
+      <div class="kpi-label">Gateway Ingress p50</div>
+      <div class="kpi-val text-blue"><span id="heroIngressP50">—</span><span class="kpi-unit">ms</span></div>
+      <div class="kpi-sub">p99: <span class="mono" id="heroIngressP99">—</span></div>
+    </div>
+    <div class="panel kpi-card">
+      <div class="kpi-label">DB Audit Commit p50</div>
+      <div class="kpi-val text-green"><span id="heroDbP50">—</span><span class="kpi-unit">ms</span></div>
+      <div class="kpi-sub">JDBC batch commit (max 32)</div>
+    </div>
+    <div class="panel kpi-card">
+      <div class="kpi-label">Peak Throughput</div>
+      <div class="kpi-val text-purple"><span id="heroTput">—</span><span class="kpi-unit">tx/s</span></div>
+      <div class="kpi-sub">300 / 300 txns · 100% success</div>
+    </div>
+    <div class="panel kpi-card">
+      <div class="kpi-label">C++ Sequencer Engine</div>
+      <div class="kpi-val">24.83<span class="kpi-unit">M/s</span></div>
+      <div class="kpi-sub">p50: 47 CPU cycles (~14 ns)</div>
+    </div>
+  </div>
 
-            const txnId = parseInt(document.getElementById('txnId').value);
-            const amount = parseInt(document.getElementById('amount').value);
-            const fromAcct = parseInt(document.getElementById('fromAccount').value);
-            const toAcct = parseInt(document.getElementById('toAccount').value);
+  <div class="panel mb-16">
+    <div class="panel-head">
+      <div>
+        <div class="panel-title">Benchmark Suite Analysis</div>
+        <div class="panel-sub">Active suite: <span class="mono" id="activeSuiteLabel">—</span></div>
+      </div>
+      <div class="suite-tabs" id="suiteTabs"></div>
+    </div>
+    <div class="panel-body">
+      <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-bottom:4px">
+        <span>Latency Attribution (Ingress vs. Cloud DB Commit)</span>
+        <span class="mono" id="barTotal">— ms</span>
+      </div>
+      <div class="prop-bar">
+        <div class="prop-in" id="barIngress" style="width:1%"></div>
+        <div class="prop-db" id="barDb" style="width:99%"></div>
+      </div>
+      <div class="prop-legend">
+        <span>Ingress + SPSC: <strong id="barIngressLbl">—</strong> (<span id="barIngressPct">—</span>)</span>
+        <span>PostgreSQL Commit: <strong id="barDbLbl">—</strong> (<span id="barDbPct">—</span>)</span>
+      </div>
 
-            resetLifecycle();
-            submitTimestamp = performance.now();
-            
-            // Step 1: SUBMITTED
-            setStepState('step1', 'active', 'Sent binary frame (60B)');
-            document.getElementById('lifecycleLatency').textContent = 'PROCESSING...';
-            document.getElementById('lifecycleLatency').className = 'text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20';
+      <div class="overflow-x" style="margin-top:16px">
+        <table class="tbl perf-tbl">
+          <thead>
+            <tr>
+              <th>Metric</th><th>Min</th><th class="col-p50">p50</th><th>p90</th><th>p95</th><th class="col-p99">p99</th><th>Max</th><th>Mean</th><th>&sigma;</th>
+            </tr>
+          </thead>
+          <tbody id="perfTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-            const payload = buildFlatBuffer(txnId, amount, fromAcct, toAcct, currentType);
-            ws.send(payload);
-            logEvent(`[WS OUT] Sent 60B FlatBuffer transaction #${txnId}`, 'text-cyan-300');
+  <div class="grid-3 mb-16">
+    <div class="panel panel-body">
+      <div class="section-label">Latency Breakdown (p50 ms)</div>
+      <div class="chart-box"><canvas id="chartLatency"></canvas></div>
+    </div>
+    <div class="panel panel-body">
+      <div class="section-label">Throughput by Suite (tx/sec)</div>
+      <div class="chart-box"><canvas id="chartThroughput"></canvas></div>
+    </div>
+    <div class="panel panel-body">
+      <div class="section-label">Concurrency Scaling</div>
+      <div class="chart-box"><canvas id="chartScaling"></canvas></div>
+    </div>
+  </div>
 
-            // Increment txnId for next attempt
-            document.getElementById('txnId').value = ++nextTxnId;
-        }
+  <div class="grid-2">
+    <div class="panel panel-body">
+      <div class="section-label">Suite Throughput Comparison</div>
+      <div id="tputBars" style="margin-top:8px"></div>
+    </div>
+    <div class="panel panel-body">
+      <div class="section-label">Measurement Environment</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px;font-size:12px">
+        <div><div style="font-size:10px;color:var(--text-4)">HOST</div><div class="mono" id="envOs">Windows 11 (amd64) · 12 cores</div></div>
+        <div><div style="font-size:10px;color:var(--text-4)">RUNTIME</div><div class="mono" id="envJvm">Oracle JDK 21.0.4</div></div>
+        <div><div style="font-size:10px;color:var(--text-4)">SEQUENCER</div><div class="mono text-green">C++20 GCC 15.2 -O3 -msse4.2</div></div>
+        <div><div style="font-size:10px;color:var(--text-4)">DATABASE</div><div class="mono text-blue">Neon PostgreSQL 16 (Singapore)</div></div>
+      </div>
+    </div>
+  </div>
 
-        function handleGatewayMessage(msg) {
-            const now = performance.now();
-            const elapsed = (now - submitTimestamp).toFixed(1);
+</section>
 
-            if (msg.startsWith('ACCEPT|stage=INGRESS')) {
-                // Step 2: INGRESS ACCEPTED
-                setStepState('step1', 'done');
-                setStepState('step2', 'done', `inboundSequence=${msg.split('|')[3]?.split('=')[1] || '0'}`);
-                
-                // C++ Sequencer runs in nanoseconds on CPU hot path
-                setTimeout(() => {
-                    setStepState('step3', 'done', 'CRC32C & Sequence Assigned (<1 ms)');
-                    setStepState('step4', 'active', 'Committing to Cloud PostgreSQL...');
-                }, 30);
-            } else if (msg.startsWith('ACK|stage=AUDITED')) {
-                // Step 3, 4, 5 Completed!
-                const parts = msg.split('|');
-                const journalSeq = parts.find(p => p.startsWith('journalSequence='))?.split('=')[1] || '0';
-                
-                setStepState('step3', 'done', `seq=${journalSeq}`);
-                setStepState('step4', 'done', 'Durable Cloud Commit');
-                setStepState('step5', 'done', `Delivered (${elapsed} ms)`);
+</main>
 
-                document.getElementById('lifecycleLatency').textContent = `PERSISTED & ACK'D (${elapsed} ms)`;
-                document.getElementById('lifecycleLatency').className = 'text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20';
-
-                // Refresh audit table
-                setTimeout(fetchAuditLog, 200);
-            } else if (msg.startsWith('REJECT')) {
-                setStepState('step1', 'done');
-                setStepState('step2', 'error', msg);
-                document.getElementById('lifecycleLatency').textContent = `REJECTED (${elapsed} ms)`;
-                document.getElementById('lifecycleLatency').className = 'text-xs font-mono font-bold text-rose-400 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20';
-            }
-        }
-
-        function setStepState(stepId, state, detail) {
-            const el = document.getElementById(stepId);
-            const badge = el.querySelector('.step-badge');
-            const time = el.querySelector('.step-time');
-
-            if (state === 'active') {
-                el.className = 'p-4 rounded-xl border border-cyan-500/50 bg-cyan-950/20 transition-all flex items-start space-x-4';
-                badge.className = 'w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs bg-cyan-500 text-black step-badge pulse-dot';
-                if (detail) time.textContent = detail;
-            } else if (state === 'done') {
-                el.className = 'p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/10 transition-all flex items-start space-x-4';
-                badge.className = 'w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs bg-emerald-500 text-black step-badge';
-                if (detail) time.textContent = detail;
-            } else if (state === 'error') {
-                el.className = 'p-4 rounded-xl border border-rose-500/50 bg-rose-950/20 transition-all flex items-start space-x-4';
-                badge.className = 'w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs bg-rose-500 text-white step-badge';
-                if (detail) time.textContent = detail;
-            }
-        }
-
-        function resetLifecycle() {
-            for (let i = 1; i <= 5; i++) {
-                const el = document.getElementById('step' + i);
-                el.className = 'p-4 rounded-xl border border-surface-border bg-slate-900/60 transition-all flex items-start space-x-4';
-                el.querySelector('.step-badge').className = 'w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs bg-slate-800 text-slate-400 step-badge';
-                el.querySelector('.step-time').textContent = '--';
-            }
-        }
-
-        // Periodic Telemetry Fetch
-        async function fetchTelemetry() {
-            try {
-                const res = await fetch('/api/telemetry');
-                if (!res.ok) return;
-                const data = await res.json();
-
-                // DB Status
-                const dbDot = document.getElementById('dbStatusDot');
-                const dbText = document.getElementById('dbStatusText');
-                if (data.dbConnected) {
-                    dbDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-md shadow-emerald-500/50';
-                    dbText.className = 'text-xs font-mono font-semibold text-emerald-400';
-                    dbText.textContent = 'CONNECTED';
-                } else {
-                    dbDot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 pulse-dot';
-                    dbText.className = 'text-xs font-mono font-semibold text-rose-400';
-                    dbText.textContent = 'OFFLINE';
-                }
-
-                // Inbound Ring
-                document.getElementById('inboundProducer').textContent = Number(data.inbound.producerSeq).toLocaleString();
-                document.getElementById('inboundConsumer').textContent = Number(data.inbound.consumerSeq).toLocaleString();
-                document.getElementById('inboundDepth').textContent = Number(data.inbound.depth).toLocaleString();
-
-                // Journal Ring
-                document.getElementById('journalProducer').textContent = Number(data.journal.producerSeq).toLocaleString();
-                document.getElementById('journalConsumer').textContent = Number(data.journal.consumerSeq).toLocaleString();
-                document.getElementById('journalDepth').textContent = Number(data.journal.depth).toLocaleString();
-
-                // ACK Ring
-                document.getElementById('ackProducer').textContent = Number(data.ack.producerSeq).toLocaleString();
-                document.getElementById('ackConsumer').textContent = Number(data.ack.consumerSeq).toLocaleString();
-                document.getElementById('ackDepth').textContent = Number(data.ack.depth).toLocaleString();
-
-            } catch (err) {}
-        }
-        setInterval(fetchTelemetry, 1000);
-        fetchTelemetry();
-
-        // Audit Log Fetch
-        async function fetchAuditLog() {
-            try {
-                const res = await fetch('/api/audit');
-                if (!res.ok) return;
-                const data = await res.json();
-                const tbody = document.getElementById('auditTableBody');
-                const badge = document.getElementById('auditCountBadge');
-
-                if (data.records && data.records.length > 0) {
-                    badge.textContent = `${data.records.length} Records`;
-                    tbody.innerHTML = data.records.map(r => {
-                        const typeBadge = r.type === 0 ? '<span class="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">TRANSFER</span>' :
-                                         r.type === 1 ? '<span class="text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">DEPOSIT</span>' :
-                                                        '<span class="text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">WITHDRAW</span>';
-                        const dollar = (r.amount / 100).toFixed(2);
-                        return `
-                            <tr class="hover:bg-slate-800/40 transition-colors">
-                                <td class="py-3 px-3 font-bold text-white">${r.sequenceId}</td>
-                                <td class="py-3 px-3 text-slate-300 font-mono">${r.clientTxnId}</td>
-                                <td class="py-3 px-3">${typeBadge}</td>
-                                <td class="py-3 px-3 text-slate-400">${r.fromAccount}</td>
-                                <td class="py-3 px-3 text-slate-400">${r.toAccount}</td>
-                                <td class="py-3 px-3 text-right font-bold text-white">$${dollar}</td>
-                                <td class="py-3 px-3"><span class="text-emerald-400 font-bold">PERSISTED</span></td>
-                                <td class="py-3 px-3 text-slate-400">${r.checksum}</td>
-                                <td class="py-3 px-3 text-right text-slate-400">${r.auditedAt.slice(0, 19)}</td>
-                            </tr>
-                        `;
-                    }).join('');
-                } else {
-                    badge.textContent = '0 Records';
-                    tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-slate-500">No audit records found yet. Submit a transaction above!</td></tr>';
-                }
-            } catch (err) {}
-        }
-        setInterval(fetchAuditLog, 2500);
-        fetchAuditLog();
-
-        function logEvent(text, colorClass) {
-            const consoleEl = document.getElementById('eventConsole');
-            const row = document.createElement('div');
-            row.className = colorClass || 'text-slate-400';
-            row.textContent = `[${new Date().toISOString().slice(11, 23)}] ${text}`;
-            consoleEl.appendChild(row);
-            consoleEl.scrollTop = consoleEl.scrollHeight;
-        }
-
-        function clearLogs() {
-            document.getElementById('eventConsole').innerHTML = '';
-        }
-    </script>
+<script src="/app.js"></script>
 </body>
 </html>

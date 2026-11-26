@@ -59,8 +59,11 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
     private final PendingRequestRegistry pendingRequests;
 
     private final byte[] cachedHtmlBytes;
+    private final byte[] cachedCssBytes;
+    private final byte[] cachedJsBytes;
     private volatile String cachedTelemetryJson = "{\"status\":\"STARTING\",\"dbConnected\":false}";
     private volatile String cachedAuditJson = "{\"records\":[]}";
+    private volatile String cachedBenchmarkJson = "{\"suites\":[]}";
     private final AtomicBoolean dbConnected = new AtomicBoolean(false);
 
     private final ScheduledExecutorService cacheUpdater;
@@ -78,8 +81,11 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
         this.dbPassword = dbPassword;
         this.pendingRequests = pendingRequests;
 
-        // Pre-cache static HTML in memory once at startup
-        this.cachedHtmlBytes = loadStaticHtmlBytes();
+        // Pre-cache static assets in memory once at startup
+        this.cachedHtmlBytes = loadStaticResourceBytes("/static/index.html",
+                "<html><body><h2>ULL-FLIG Gateway Dashboard</h2><p>Static index.html not found.</p></body></html>");
+        this.cachedCssBytes = loadStaticResourceBytes("/static/styles.css", "");
+        this.cachedJsBytes = loadStaticResourceBytes("/static/app.js", "");
 
         // Dedicated background scheduler for non-blocking caching
         this.cacheUpdater = Executors.newScheduledThreadPool(1, r -> {
@@ -88,9 +94,10 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
             return t;
         });
 
-        // Background updates: Telemetry every 400ms, DB Audit query every 1800ms
+        // Background updates: Telemetry every 400ms, DB Audit query every 1800ms, Benchmark cache every 2000ms
         this.cacheUpdater.scheduleAtFixedRate(this::refreshTelemetryCache, 0, 400, TimeUnit.MILLISECONDS);
         this.cacheUpdater.scheduleAtFixedRate(this::refreshAuditCache, 100, 1800, TimeUnit.MILLISECONDS);
+        this.cacheUpdater.scheduleAtFixedRate(this::refreshBenchmarkCache, 200, 2000, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -113,6 +120,16 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
             return;
         }
 
+        if (uri.equals("/styles.css")) {
+            sendResponse(ctx, req, HttpResponseStatus.OK, cachedCssBytes, "text/css; charset=UTF-8");
+            return;
+        }
+
+        if (uri.equals("/app.js")) {
+            sendResponse(ctx, req, HttpResponseStatus.OK, cachedJsBytes, "application/javascript; charset=UTF-8");
+            return;
+        }
+
         if (uri.startsWith("/api/telemetry")) {
             sendResponse(ctx, req, HttpResponseStatus.OK, cachedTelemetryJson.getBytes(CharsetUtil.UTF_8), "application/json");
             return;
@@ -120,6 +137,11 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
 
         if (uri.startsWith("/api/audit")) {
             sendResponse(ctx, req, HttpResponseStatus.OK, cachedAuditJson.getBytes(CharsetUtil.UTF_8), "application/json");
+            return;
+        }
+
+        if (uri.startsWith("/api/benchmark")) {
+            sendResponse(ctx, req, HttpResponseStatus.OK, cachedBenchmarkJson.getBytes(CharsetUtil.UTF_8), "application/json");
             return;
         }
 
@@ -235,6 +257,16 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
         }
     }
 
+    private void refreshBenchmarkCache() {
+        try {
+            Path benchFile = Path.of("latency_benchmark_results.json");
+            if (Files.exists(benchFile)) {
+                this.cachedBenchmarkJson = Files.readString(benchFile, CharsetUtil.UTF_8);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
     private static RingTelemetry readRing(Path path, long capacity, boolean readStreamId) {
         if (!Files.exists(path)) return new RingTelemetry(0, 0, 0, capacity, 0);
         try (FileChannel fc = FileChannel.open(path, StandardOpenOption.READ)) {
@@ -250,16 +282,17 @@ public final class DashboardHttpHandler extends SimpleChannelInboundHandler<Full
         }
     }
 
-    private static byte[] loadStaticHtmlBytes() {
-        try (InputStream in = DashboardHttpHandler.class.getResourceAsStream("/static/index.html")) {
+    private static byte[] loadStaticResourceBytes(String classpathPath, String fallback) {
+        try (InputStream in = DashboardHttpHandler.class.getResourceAsStream(classpathPath)) {
             if (in != null) return in.readAllBytes();
         } catch (Exception ignored) {}
 
-        Path localPath = Path.of("src/main/resources/static/index.html");
+        String relPath = classpathPath.startsWith("/") ? classpathPath.substring(1) : classpathPath;
+        Path localPath = Path.of("src/main/resources/" + relPath);
         if (Files.exists(localPath)) {
             try { return Files.readAllBytes(localPath); } catch (Exception ignored) {}
         }
-        return "<html><body><h2>ULL-FLIG Gateway Dashboard</h2><p>Static index.html not found.</p></body></html>".getBytes(CharsetUtil.UTF_8);
+        return fallback.getBytes(CharsetUtil.UTF_8);
     }
 
     private static void sendResponse(ChannelHandlerContext ctx, FullHttpRequest req,

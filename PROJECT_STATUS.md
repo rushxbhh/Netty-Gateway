@@ -1,8 +1,8 @@
 # ULL-FLIG: Project Status & Execution Log
 
-**Document Version:** 1.2.0  
-**Status Date:** November 25, 2026  
-**Current Phase:** Phase 2 Complete $\rightarrow$ Entering Phase 3 (End-to-End Reliability & Stress Testing)  
+**Document Version:** 1.5.0  
+**Status Date:** November 26, 2026  
+**Current Phase:** Phase 4 Complete (Batch DB Commit + Singapore DB) $\rightarrow$ Entering Phase 5 (Observability & Demo Runbook)  
 **Project Name:** ULL-FLIG (Ultra-Low-Latency Financial Ledger & Ingress Gateway)  
 **Project Title:** Design and Implementation of a Low-Latency Transaction Ingress and Audit Gateway  
 **Institution:** Medicaps University, Indore — Department of Computer Science and Engineering  
@@ -17,15 +17,16 @@ This document tracks the execution roadmap and technical status for the **ULL-FL
 
 - **Phase 0 (Repository Audit and Baseline):** Completed on Nov 25, 2026.
 - **Phase 1 (System Stabilization):** Completed on Nov 25, 2026.
-- **Phase 2 (Frontend & Demonstration Interface):** **COMPLETED on Nov 25, 2026.**
-  - **Single-Port Unified Gateway (Port 8080):** Serves both the interactive web dashboard (`http://localhost:8080/`) and the binary WebSocket ingress endpoint (`ws://localhost:8080/ws`).
-  - **Performance Isolation Architecture:**
-    - Dedicated Netty `EventExecutorGroup` (`dashboard-io`, 2 threads) ensures HTTP dashboard traffic never blocks or competes with WebSocket hot-path transaction workers.
-    - Asynchronous background polling cache (`dashboard-cache-worker`) refreshes ring buffer telemetry (every 400ms) and PostgreSQL audit logs (every 1800ms) in memory, serving HTTP endpoints in < 50 microseconds with ZERO database blocking on the request path.
-  - **Client-Side Binary FlatBuffers Engine:** JavaScript binary encoder constructs exact `NIGT` binary FlatBuffers (60 bytes) directly in the browser using `ArrayBuffer` and `DataView`.
-  - **Deterministic 5-Stage Lifecycle Tracker:** Real-time visual stepper tracking `SUBMITTED` $\rightarrow$ `ACCEPTED AT INGRESS` $\rightarrow$ `SEQUENCED` $\rightarrow$ `AUDIT PERSISTED` $\rightarrow$ `ACKNOWLEDGED`.
-  - **System Telemetry & Live Audit Ledger:** Live SPSC ring meters (Inbound, Journal, ACK) and interactive PostgreSQL audit history table.
-- **Next Phase:** Phase 3 (End-to-End Reliability & Extended Stress Testing).
+- **Phase 2 (Frontend & Demonstration Interface):** Completed on Nov 25, 2026; **Redesigned on Nov 26, 2026** (light examiner-ready theme, interactive Chart.js v4 performance dashboards, animated SVG pipeline architecture diagram, zero dev notes on hosted page).
+- **Phase 3 (End-to-End Reliability & Boundary Testing):** **COMPLETED on Nov 26, 2026.**
+  - **Comprehensive 12-Scenario Automated Suite (`EndToEndReliabilityTestSuite`):** Tested valid transfers, deposits, withdrawals, negative amounts, zero amounts, self-transfers, system transfers, malformed buffers, duplicate in-flight transactions, sequential monotonicity, concurrent multi-client submissions, and abrupt client disconnect handling.
+  - **Mid-Stream Restart Recovery:** Tested mid-flight cluster teardown and restart; ring magic `G12RING1`, `streamId`, and sequence counters persisted without reset or duplication.
+- **Phase 4 (Performance Benchmarking):** **COMPLETED (re-run Nov 26, 2026 with JDBC batch commits + Neon Singapore DB — 300/300 success).**
+  - **C++ Sequencer Engine Benchmark:** 24.83 M ops/sec throughput, p50 latency of 47 CPU cycles (~14 ns), p99 = 54 cycles (~16 ns). SSE4.2 hardware CRC32C.
+  - **Pipeline Latency Benchmark (batch mode + Singapore DB):** Gateway ingress p50 = **0.71–1.21 ms** (sub-millisecond at concurrency). Neon Singapore DB batch commit p50 = **185–199 ms** across all concurrency levels (down from 1,752 ms at Concurrency=10 — an **8.8x reduction**). Throughput scaled from **5.00 tx/sec** (Concurrency=1) to **50.66 tx/sec** (Concurrency=10) with **100% success rate across all 300 transactions**.
+  - **Charts generated:** `benchmark-charts/` (4 PNG charts: latency percentiles, throughput, ingress-vs-DB breakdown, concurrency scaling).
+  - **Raw output:** `latency_benchmark_results.json` updated with fresh run metrics.
+- **Next Phase:** Phase 5 (Observability & External Examiner Demonstration Runbook).
 
 ---
 
@@ -146,6 +147,8 @@ All tests below were executed and verified directly on the host machine:
 | **Build** | `mvn clean test-compile` (Audit) | Java 21 compilation & dependencies | **PASS** | 10 main + 1 test class built successfully |
 | **Phase 1 Pipeline** | `verify-pipeline.ps1` | Full Cluster: Inbound $\rightarrow$ Sequencer $\rightarrow$ Journal $\rightarrow$ Audit $\rightarrow$ Neon DB $\rightarrow$ ACK Ring $\rightarrow$ Gateway $\rightarrow$ Client | **PASS** | SPSC counter advancement verified (0 $\rightarrow$ 1 across all 3 rings); restart counter preservation verified; durable Neon row verified |
 | **Phase 2 Dashboard** | `GET /`, `/api/telemetry`, `/api/audit` | Web UI + Non-blocking Telemetry & Audit APIs + Hot-Path Isolation | **PASS** | UI served at `http://localhost:8080/`; telemetry response < 50µs from memory cache; isolated `dashboard-io` executor protects hot-path Netty workers |
+| **Phase 3 Reliability** | `EndToEndReliabilityTestSuite` / `test-reliability.ps1` | Comprehensive 12-scenario reliability suite + Mid-stream restart | **PASS** | 100% pass across all 12 boundary, validation, concurrency, duplicate rejection, and restart continuity scenarios |
+| **Phase 4 Latency** | `PipelineLatencyBenchmark` | End-to-End WebSocket Ingress + Ring + C++ + Neon Cloud DB + ACK | **PASS** | **300/300 tx success (100%)** across 4 suites (Sequential-50, Sequential-100, Concurrent-5, Concurrent-10).<br>**Ingress p50:** 1.08–2.40 ms (sub-5 ms all suites)<br>**DB Commit p50:** 199–1752 ms (scales with concurrency; cloud Neon WAN bottleneck)<br>**Total E2E p50:** 201–1753 ms<br>**C++ sequencer:** 24.83 M ops/s, p50 = 47 cycles (~14 ns) |
 
 
 

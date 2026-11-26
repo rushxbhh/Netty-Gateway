@@ -68,6 +68,14 @@ public final class MappedJournalReader implements AutoCloseable {
 
     /** Returns null when no published journal record is currently available. */
     public JournalRecord readNext() throws IOException {
+        return readAt(consumerSequence());
+    }
+
+    /**
+     * Reads the published journal record at {@code targetSequence} without advancing
+     * {@code consumerSequence}, or returns null if {@code targetSequence} is not yet published.
+     */
+    public JournalRecord readAt(long targetSequence) throws IOException {
         long consumer = consumerSequence();
         long producer = producerSequence();
         long used = producer - consumer;
@@ -75,13 +83,16 @@ public final class MappedJournalReader implements AutoCloseable {
             throw new IOException("Journal counters are inconsistent: producer="
                     + Long.toUnsignedString(producer) + ", consumer=" + Long.toUnsignedString(consumer));
         }
-        if (consumer == producer) return null;
+        long offsetFromConsumer = targetSequence - consumer;
+        if (Long.compareUnsigned(offsetFromConsumer, used) >= 0) {
+            return null;
+        }
 
-        int slotOffset = slotOffset(consumer);
+        int slotOffset = slotOffset(targetSequence);
         long sequence = ring.getLong(slotOffset + AuditRingProtocol.JOURNAL_SEQUENCE_OFFSET);
-        if (sequence != consumer) {
+        if (sequence != targetSequence) {
             throw new IOException("Journal sequence mismatch: expected "
-                    + Long.toUnsignedString(consumer) + " but slot contains "
+                    + Long.toUnsignedString(targetSequence) + " but slot contains "
                     + Long.toUnsignedString(sequence));
         }
 
